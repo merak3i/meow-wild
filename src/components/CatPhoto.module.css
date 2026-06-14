@@ -1,0 +1,52 @@
+.frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  animation: mw-float 8s ease-in-out infinite;
+}
+
+/* coat-tinted halo behind the photo, glows through the feathered edges */
+.glow {
+  position: absolute;
+  inset: -8%;
+  z-index: 0;
+  background: radial-gradient(circle at 50% 46%, var(--accent) 0%, transparent 60%);
+  opacity: 0.4;
+  filter: blur(38px);
+  pointer-events: none;
+}
+
+/* next/image fill renders an absolutely-positioned <img>; we feather its edges
+   with a radial mask so the rectangle dissolves into the biome. */
+.photo {
+  z-index: 1;
+  object-fit: cover;
+  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 46%, #000 54%, rgba(0, 0, 0, 0) 100%);
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 46%, #000 54%, rgba(0, 0, 0, 0) 100%);
+  filter: drop-shadow(0 22px 28px rgba(12, 22, 15, 0.42));
+}
+
+.fallback {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: auto;
+}
+
+/* Keyframes must be defined inside the module: CSS Modules scopes the
+   animation-name reference, so a global @keyframes would not match. */
+@keyframes mw-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame {
+    animation: none;
+  }
+}

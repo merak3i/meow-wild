@@ -1,7 +1,5 @@
+import Experience from "@/components/Experience";
+
 export default function Home() {
-  return (
-    <main>
-      <div>Hello world!</div>
-    </main>
-  );
+  return <Experience />;
 }

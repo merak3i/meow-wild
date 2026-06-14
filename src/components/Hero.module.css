@@ -1,0 +1,100 @@
+.hero {
+  position: relative;
+  z-index: 2;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  text-align: center;
+}
+
+.inner {
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #1b231e;
+  animation: mw-rise 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  padding: 5px 14px;
+  border: 1.5px solid rgba(40, 50, 44, 0.4);
+  border-radius: 999px;
+}
+
+.eyebrow {
+  margin-top: 26px;
+  font-size: 0.78rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(40, 52, 46, 0.66);
+  font-weight: 600;
+}
+
+.title {
+  margin-top: 14px;
+  font-size: clamp(2.8rem, 9vw, 5.6rem);
+  letter-spacing: -0.025em;
+  color: #161d18;
+}
+
+.sub {
+  margin-top: 22px;
+  max-width: 540px;
+  font-size: clamp(1rem, 2.2vw, 1.22rem);
+  line-height: 1.55;
+  color: rgba(34, 44, 38, 0.84);
+}
+.sub strong {
+  font-weight: 700;
+  color: #8a4f17;
+}
+
+.cue {
+  margin-top: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(34, 44, 38, 0.62);
+  font-weight: 600;
+}
+.chev {
+  width: 26px;
+  height: 26px;
+  color: #8a4f17;
+  animation: mw-cue 1.8s ease-in-out infinite;
+}
+
+/* Keyframes defined locally — CSS Modules scopes animation-name references,
+   so global keyframes would not match. */
+@keyframes mw-rise {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes mw-cue {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(9px);
+    opacity: 1;
+  }
+}

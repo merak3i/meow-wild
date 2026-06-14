@@ -1,0 +1,82 @@
+.bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sky {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    var(--mw-sky-top) 0%,
+    var(--mw-sky-bottom) 100%
+  );
+}
+
+/* soft light source, high and slightly off-center */
+.glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    120% 70% at 70% -6%,
+    var(--mw-light) 0%,
+    transparent 58%
+  );
+  opacity: 0.85;
+  mix-blend-mode: soft-light;
+}
+
+/* drifting haze that thickens in the cloud forest */
+.fog {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(80% 40% at 30% 18%, var(--mw-fog) 0%, transparent 60%),
+    radial-gradient(70% 36% at 78% 40%, var(--mw-fog) 0%, transparent 62%),
+    linear-gradient(to bottom, transparent 60%, var(--mw-fog) 130%);
+}
+
+.ridge {
+  position: absolute;
+  left: -2%;
+  width: 104%;
+  bottom: 0;
+  color: var(--mw-ridge);
+  fill: currentColor;
+}
+.ridgeFar {
+  height: 62vh;
+  opacity: 0.16;
+  transform: translateY(calc(var(--mw-progress) * -26px));
+}
+.ridgeMid {
+  height: 48vh;
+  opacity: 0.26;
+  transform: translateY(calc(var(--mw-progress) * -52px));
+}
+.ridgeNear {
+  height: 34vh;
+  opacity: 0.42;
+  transform: translateY(calc(var(--mw-progress) * -86px));
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    130% 90% at 50% 36%,
+    transparent 56%,
+    rgba(18, 26, 20, 0.22) 100%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ridgeFar,
+  .ridgeMid,
+  .ridgeNear {
+    transform: none;
+  }
+}

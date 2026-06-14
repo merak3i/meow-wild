@@ -1,0 +1,9 @@
+.root {
+  position: relative;
+  min-height: 100vh;
+}
+
+.scroll {
+  position: relative;
+  z-index: 2;
+}
