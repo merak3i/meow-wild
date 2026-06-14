@@ -11,7 +11,9 @@ export default function Ending() {
   const [ref, inView] = useInView<HTMLElement>({ threshold: 0.3 });
 
   const scrollTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const lenis = (window as unknown as { lenis?: { scrollTo: (t: number, o?: object) => void } }).lenis;
+    if (lenis) lenis.scrollTo(0, { duration: 2.4 });
+    else window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
+import Lenis from "lenis";
 import { CATS } from "@/lib/cats";
 import { BIOMES, biomeIndexForAltitude } from "@/lib/biomes";
 import { altitudeAt, buildAltitudeTable, type AltitudeNode } from "@/lib/engine";
@@ -29,6 +30,26 @@ export default function Experience() {
   const markerRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<AltitudeNode[]>([]);
   const biomeRef = useRef(0);
+  const lenisRef = useRef<Lenis | null>(null);
+
+  // Lenis smooth scroll — gives the descent momentum and a buttery, hypnotic feel.
+  useEffect(() => {
+    if (reduced) return;
+    const lenis = new Lenis({ duration: 1.15, wheelMultiplier: 1, touchMultiplier: 1.5 });
+    lenisRef.current = lenis;
+    (window as unknown as { lenis?: Lenis }).lenis = lenis;
+    let id = 0;
+    const raf = (time: number) => {
+      lenis.raf(time);
+      id = requestAnimationFrame(raf);
+    };
+    id = requestAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(id);
+      lenis.destroy();
+      lenisRef.current = null;
+    };
+  }, [reduced]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -55,6 +76,10 @@ export default function Experience() {
       s.setProperty("--mw-light", atm.light);
       s.setProperty("--mw-ridge", atm.ridge);
       s.setProperty("--mw-progress", p.toFixed(4));
+
+      // scroll-velocity → subtle motion blur on the world (the illusionist beat)
+      const vel = Math.abs(lenisRef.current?.velocity ?? 0);
+      s.setProperty("--mw-vel", Math.min(vel * 0.05, 3.4).toFixed(2));
 
       const alt = altitudeAt(p, tableRef.current);
       if (altRef.current) altRef.current.textContent = formatMeters(alt);

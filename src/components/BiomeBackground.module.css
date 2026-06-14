@@ -11,7 +11,8 @@
   position: absolute;
   inset: -4%;
   transform: translateY(calc(var(--mw-progress) * -28px)) scale(1.06);
-  will-change: transform;
+  filter: blur(calc(var(--mw-vel, 0) * 1px));
+  will-change: transform, filter;
 }
 
 .scene {
