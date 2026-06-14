@@ -1,0 +1,24 @@
+name: Redeploy Meow Creative Haus
+
+# When meow.wild updates (push to main), trigger a production redeploy of the
+# Meow Creative Haus site so its meow.wild attachment stays in sync.
+# Requires repo secret MCH_DEPLOY_HOOK (a Vercel Deploy Hook URL for the
+# meow-creative-haus-2 project). No-ops safely until the secret is set.
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger MCH production deploy
+        env:
+          HOOK: ${{ secrets.MCH_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "MCH_DEPLOY_HOOK not set — skipping (configure it to enable the hook)."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" > /dev/null && echo "Triggered MCH production redeploy."
