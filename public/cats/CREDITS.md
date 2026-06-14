@@ -53,9 +53,9 @@ Attribution is provided per the license terms. If you are a rights holder and wa
 
 ### Leopard — *Panthera pardus*
 - File: `public/cats/leopard.webp`
-- Source: https://commons.wikimedia.org/wiki/File:African_leopard_male_(cropped).jpg
-- Author: Sumeet Moghe
-- License: CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0)
+- Source: https://commons.wikimedia.org/wiki/File:Leopard_(Panthera_pardus)_(52509810978).jpg
+- Author: Bernard DUPONT from FRANCE
+- License: CC BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0)
 
 ### Serval — *Leptailurus serval*
 - File: `public/cats/serval.webp`

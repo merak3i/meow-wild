@@ -1,52 +1,90 @@
 .frame {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1;
-  animation: mw-float 8s ease-in-out infinite;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: mw-float 9s ease-in-out infinite;
 }
 
-/* coat-tinted halo behind the photo, glows through the feathered edges */
+/* size truth — a tiger looms, a rusty-spotted cat is palm-sized */
+.frame[data-size="big"] {
+  width: 100%;
+}
+.frame[data-size="medium"] {
+  width: 84%;
+}
+.frame[data-size="small"] {
+  width: 66%;
+}
+.frame[data-size="tiny"] {
+  width: 50%;
+}
+
+/* coat-tinted halo that lifts the cutout off the backdrop */
 .glow {
   position: absolute;
-  inset: -8%;
+  left: 50%;
+  top: 46%;
+  width: 92%;
+  height: 92%;
+  transform: translate(-50%, -50%);
   z-index: 0;
-  background: radial-gradient(circle at 50% 46%, var(--accent) 0%, transparent 60%);
-  opacity: 0.4;
-  filter: blur(38px);
+  background: radial-gradient(circle at 50% 46%, var(--accent) 0%, transparent 62%);
+  opacity: 0.34;
+  filter: blur(46px);
   pointer-events: none;
 }
 
-/* next/image fill renders an absolutely-positioned <img>; we feather its edges
-   with a radial mask so the rectangle dissolves into the biome. */
 .photo {
-  z-index: 1;
-  object-fit: cover;
-  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 46%, #000 54%, rgba(0, 0, 0, 0) 100%);
-  mask-image: radial-gradient(ellipse 80% 80% at 50% 46%, #000 54%, rgba(0, 0, 0, 0) 100%);
-  filter: drop-shadow(0 22px 28px rgba(12, 22, 15, 0.42));
-}
-
-.fallback {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   width: 100%;
   height: auto;
+  max-height: 72vh;
+  object-fit: contain;
+  filter: drop-shadow(0 26px 26px rgba(8, 14, 10, 0.5));
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.9s ease,
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.loaded {
+  opacity: 1;
+  transform: translateY(0);
 }
 
-/* Keyframes must be defined inside the module: CSS Modules scopes the
-   animation-name reference, so a global @keyframes would not match. */
+/* soft contact shadow on the ground plane */
+.shadow {
+  position: absolute;
+  z-index: 1;
+  bottom: 2%;
+  left: 50%;
+  width: 64%;
+  height: 26px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(8, 14, 10, 0.42) 0%, transparent 72%);
+  filter: blur(7px);
+  pointer-events: none;
+}
+
 @keyframes mw-float {
   0%,
   100% {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-12px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .frame {
     animation: none;
+  }
+  .photo {
+    transition: opacity 0.4s ease;
+    transform: none;
   }
 }

@@ -37,6 +37,7 @@ const ROSTER = [
 const OVERRIDES = {
   jaguar: "File:Jaguar (Panthera onca palustris) male Three Brothers River.JPG",
   "sand-cat": "File:Sand cat (Kuwait).jpg",
+  leopard: "File:Leopard (Panthera pardus) (52509810978).jpg",
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

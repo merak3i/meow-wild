@@ -12,7 +12,9 @@ import AltitudeHUD from "./AltitudeHUD";
 import Hero from "./Hero";
 import BiomeBanner from "./BiomeBanner";
 import CatStation from "./CatStation";
+import Teaser from "./Teaser";
 import Ending from "./Ending";
+import { TEASER_BY_AFTER } from "@/lib/teasers";
 import styles from "./Experience.module.css";
 
 const INDEX_BY_ID = new Map(CATS.map((c, i) => [c.id, i + 1]));
@@ -80,12 +82,13 @@ export default function Experience() {
 
   return (
     <div ref={rootRef} className={styles.root}>
-      <BiomeBackground />
+      <BiomeBackground biomeIndex={biomeIndex} />
       {!reduced && <Particles biomeIndex={biomeIndex} />}
       <AltitudeHUD altRef={altRef} fillRef={fillRef} markerRef={markerRef} biome={BIOMES[biomeIndex]} />
 
       <main className={styles.scroll}>
         <Hero />
+        {TEASER_BY_AFTER["hero"] && <Teaser teaser={TEASER_BY_AFTER["hero"]} />}
         {BIOMES.map((b) => {
           const group = CATS.filter((c) => c.biome === b.id);
           if (group.length === 0) return null;
@@ -94,12 +97,12 @@ export default function Experience() {
               <BiomeBanner biome={b} />
               {group.map((cat) => {
                 const i = INDEX_BY_ID.get(cat.id) ?? 0;
+                const teaser = TEASER_BY_AFTER[cat.id];
                 return (
-                  <CatStation
-                    key={cat.id}
-                    cat={cat}
-                    side={i % 2 === 0 ? "right" : "left"}
-                  />
+                  <Fragment key={cat.id}>
+                    <CatStation cat={cat} side={i % 2 === 0 ? "right" : "left"} />
+                    {teaser && <Teaser teaser={teaser} />}
+                  </Fragment>
                 );
               })}
             </Fragment>

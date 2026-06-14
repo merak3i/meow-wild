@@ -1,39 +1,31 @@
+import Image from "next/image";
+import { BIOMES } from "@/lib/biomes";
 import styles from "./BiomeBackground.module.css";
 
 /**
- * Fixed, full-viewport atmosphere. Colors come from the `--mw-*` custom
- * properties the scroll engine writes on the root each frame, so the whole
- * world shifts hue continuously as you descend.
+ * Fixed, full-viewport atmosphere. Real CC landscape photographs crossfade as
+ * you change biome, beneath a translucent gradient veil + fog driven by the
+ * engine's `--mw-*` vars — so the photography and the flowing color read as one
+ * continuous descent.
  */
-export default function BiomeBackground() {
+export default function BiomeBackground({ biomeIndex }: { biomeIndex: number }) {
   return (
     <div className={styles.bg} aria-hidden="true">
-      <div className={styles.sky} />
-      <div className={styles.glow} />
+      <div className={styles.scenes}>
+        {BIOMES.map((b, i) => (
+          <Image
+            key={b.id}
+            src={`/scenes/${b.id}.webp`}
+            alt=""
+            fill
+            sizes="100vw"
+            priority={i === 0}
+            className={`${styles.scene} ${i === biomeIndex ? styles.active : ""}`}
+          />
+        ))}
+      </div>
+      <div className={styles.veil} />
       <div className={styles.fog} />
-
-      <svg
-        className={`${styles.ridge} ${styles.ridgeFar}`}
-        viewBox="0 0 1440 420"
-        preserveAspectRatio="xMidYMax slice"
-      >
-        <path d="M0 420V230l120-70 110 54 150-96 140 70 150-92 160 86 150-70 160 92 150-64v272Z" />
-      </svg>
-      <svg
-        className={`${styles.ridge} ${styles.ridgeMid}`}
-        viewBox="0 0 1440 420"
-        preserveAspectRatio="xMidYMax slice"
-      >
-        <path d="M0 420V300l160-90 140 70 170-86 150 80 160-70 170 92 160-72 170 92v176Z" />
-      </svg>
-      <svg
-        className={`${styles.ridge} ${styles.ridgeNear}`}
-        viewBox="0 0 1440 360"
-        preserveAspectRatio="xMidYMax slice"
-      >
-        <path d="M0 360V250l180 60 160-48 180 64 170-40 190 70 180-44 180 56v32Z" />
-      </svg>
-
       <div className={styles.vignette} />
     </div>
   );
