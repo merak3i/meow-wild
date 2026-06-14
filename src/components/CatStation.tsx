@@ -16,6 +16,7 @@ function CatStation({ cat, side }: { cat: Cat; side: "left" | "right" }) {
     <section
       ref={ref}
       data-mw-alt={cat.altitudeM}
+      data-mw-scene={cat.id}
       className={`${styles.station} ${styles[side]} ${inView ? styles.in : ""}`}
       aria-label={`${cat.name}, lives around ${cat.altitudeM} metres`}
     >

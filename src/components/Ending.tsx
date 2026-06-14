@@ -20,6 +20,7 @@ export default function Ending() {
     <section
       ref={ref}
       data-mw-alt={0}
+      data-mw-scene="domestic-cat"
       className={`${styles.ending} ${inView ? styles.in : ""}`}
     >
       <div className={styles.scrim} aria-hidden="true" />

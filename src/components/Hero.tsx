@@ -4,7 +4,7 @@ import styles from "./Hero.module.css";
 
 export default function Hero() {
   return (
-    <header className={styles.hero} data-mw-alt={SUMMIT_M}>
+    <header className={styles.hero} data-mw-alt={SUMMIT_M} data-mw-scene="hero">
       <div className={styles.inner}>
         <span className={styles.wordmark}>meow.wild</span>
         <span className={styles.eyebrow}>A descent through the world of cats</span>

@@ -31,6 +31,9 @@ export default function Experience() {
   const tableRef = useRef<AltitudeNode[]>([]);
   const biomeRef = useRef(0);
   const lenisRef = useRef<Lenis | null>(null);
+  const [activeScene, setActiveScene] = useState("hero");
+  const sceneRef = useRef("hero");
+  const sceneAnchorsRef = useRef<{ id: string; center: number }[]>([]);
 
   // Lenis smooth scroll — gives the descent momentum and a buttery, hypnotic feel.
   useEffect(() => {
@@ -57,6 +60,11 @@ export default function Experience() {
 
     const rebuild = () => {
       tableRef.current = buildAltitudeTable(root);
+      const els = Array.from(root.querySelectorAll<HTMLElement>("[data-mw-scene]"));
+      sceneAnchorsRef.current = els.map((el) => {
+        const r = el.getBoundingClientRect();
+        return { id: el.dataset.mwScene || "hero", center: r.top + window.scrollY + r.height / 2 };
+      });
     };
     rebuild();
     const settle = window.setTimeout(rebuild, 400);
@@ -93,6 +101,22 @@ export default function Experience() {
         setBiomeIndex(bi);
       }
 
+      // active per-animal backdrop = scene anchor nearest the viewport centre
+      const centerY = window.scrollY + window.innerHeight / 2;
+      let bestId = sceneRef.current;
+      let bestDist = Infinity;
+      for (const a of sceneAnchorsRef.current) {
+        const d = Math.abs(a.center - centerY);
+        if (d < bestDist) {
+          bestDist = d;
+          bestId = a.id;
+        }
+      }
+      if (bestId !== sceneRef.current) {
+        sceneRef.current = bestId;
+        setActiveScene(bestId);
+      }
+
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -107,7 +131,7 @@ export default function Experience() {
 
   return (
     <div ref={rootRef} className={styles.root}>
-      <BiomeBackground biomeIndex={biomeIndex} />
+      <BiomeBackground activeScene={activeScene} />
       {!reduced && <Particles biomeIndex={biomeIndex} />}
       <AltitudeHUD altRef={altRef} fillRef={fillRef} markerRef={markerRef} biome={BIOMES[biomeIndex]} />
 
