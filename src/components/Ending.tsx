@@ -67,7 +67,7 @@ export default function Ending() {
           <br />
           Built by{" "}
           <a
-            href="https://meow-creative-haus-2.vercel.app"
+            href="https://meowcreativehaus.vercel.app"
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: "3px" }}
