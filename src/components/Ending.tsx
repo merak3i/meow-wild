@@ -64,6 +64,17 @@ export default function Ending() {
 
         <footer className={styles.footer}>
           meow.wild — every altitude on this page is real.
+          <br />
+          Built by{" "}
+          <a
+            href="https://meowcreativehaus.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: "3px" }}
+          >
+            Meow Creative Haus
+          </a>{" "}
+          →
         </footer>
       </div>
     </section>
