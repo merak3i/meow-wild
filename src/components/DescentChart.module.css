@@ -1,0 +1,105 @@
+.chart {
+  margin: 46px auto 0;
+  width: 100%;
+  max-width: 960px;
+}
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.grid {
+  stroke: rgba(246, 242, 234, 0.1);
+  stroke-width: 1;
+}
+.axis {
+  fill: rgba(246, 242, 234, 0.5);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.line {
+  fill: none;
+  stroke: rgba(242, 182, 109, 0.85);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.reach {
+  stroke: rgba(246, 242, 234, 0.32);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.cap {
+  fill: rgba(246, 242, 234, 0.6);
+}
+.pt {
+  cursor: default;
+}
+.dot {
+  fill: var(--c);
+  stroke: rgba(6, 9, 14, 0.9);
+  stroke-width: 1.5;
+}
+.ring {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 1.2;
+  opacity: 0.55;
+}
+.name {
+  fill: rgba(246, 242, 234, 0.72);
+  font-family: var(--sans);
+  font-size: 13px;
+}
+.pt:hover .name {
+  fill: var(--ink-light);
+}
+.pt:hover .dot {
+  stroke: var(--ink-light);
+}
+
+.caption {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  text-align: center;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--ink-light-2);
+}
+.caption b {
+  color: var(--ink-light);
+  font-weight: 600;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 18px;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
+}
+
+@media (max-width: 640px) {
+  .name {
+    font-size: 21px;
+  }
+  .axis {
+    font-size: 20px;
+  }
+}

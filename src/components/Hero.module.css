@@ -1,100 +1,168 @@
 .hero {
   position: relative;
-  z-index: 2;
-  min-height: 100svh;
+  height: 230vh;
+  height: 230svh;
+}
+.markTop {
+  position: absolute;
+  top: 50vh;
+  left: 0;
+  width: 1px;
+  height: 0;
+}
+.markEnd {
+  position: absolute;
+  bottom: 50vh;
+  left: 0;
+  width: 1px;
+  height: 0;
+}
+
+.sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0 24px;
-  text-align: center;
+  overflow: hidden;
 }
 
 .inner {
-  max-width: 720px;
+  --out: clamp(0, (var(--q, 0) - 0.2) * 2.4, 1);
+  max-width: 1040px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  color: #1b231e;
-  animation: mw-rise 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  text-align: center;
+  color: var(--ink-light);
+  opacity: calc(1 - var(--out));
+  transform: translate3d(0, calc(var(--out) * -9vh), 0);
+  text-shadow: 0 2px 30px rgba(3, 6, 18, 0.45);
 }
 
 .wordmark {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.05rem;
-  letter-spacing: 0.04em;
-  padding: 5px 14px;
-  border: 1.5px solid rgba(40, 50, 44, 0.4);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.32em;
+  padding: 8px 14px 8px 18px;
+  border: 1px solid rgba(246, 242, 234, 0.32);
   border-radius: 999px;
+  animation: rise 1.4s var(--ease) both;
 }
-
 .eyebrow {
-  margin-top: 26px;
-  font-size: 0.78rem;
-  letter-spacing: 0.28em;
+  margin-top: 30px;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: rgba(40, 52, 46, 0.66);
-  font-weight: 600;
+  opacity: 0.74;
+  animation: rise 1.4s var(--ease) 0.08s both;
 }
-
 .title {
-  margin-top: 14px;
-  font-size: clamp(2.8rem, 9vw, 5.6rem);
-  letter-spacing: -0.025em;
-  color: #161d18;
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  font-size: clamp(3.3rem, 10.6vw, 9.4rem);
+  line-height: 0.9;
+  letter-spacing: -0.035em;
 }
-
-.sub {
-  margin-top: 22px;
-  max-width: 540px;
-  font-size: clamp(1rem, 2.2vw, 1.22rem);
-  line-height: 1.55;
-  color: rgba(34, 44, 38, 0.84);
+.title em {
+  font-style: italic;
 }
-.sub strong {
-  font-weight: 700;
-  color: #8a4f17;
+.l1 {
+  animation: rise 1.5s var(--ease) 0.14s both;
+}
+.l2 {
+  animation: rise 1.5s var(--ease) 0.24s both;
+}
+.lede {
+  margin-top: 30px;
+  max-width: 560px;
+  font-size: clamp(1.02rem, 1.5vw, 1.2rem);
+  line-height: 1.62;
+  color: var(--ink-light-2);
+  animation: rise 1.5s var(--ease) 0.36s both;
+}
+.lede strong {
+  color: var(--amber);
+  font-weight: 500;
 }
 
 .cue {
-  margin-top: 52px;
+  margin-top: 54px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  font-size: 0.72rem;
-  letter-spacing: 0.2em;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: rgba(34, 44, 38, 0.62);
-  font-weight: 600;
+  opacity: 0.7;
+  animation: rise 1.5s var(--ease) 0.5s both;
 }
-.chev {
-  width: 26px;
-  height: 26px;
-  color: #8a4f17;
-  animation: mw-cue 1.8s ease-in-out infinite;
+.cue i {
+  position: relative;
+  display: block;
+  width: 1px;
+  height: 48px;
+  background: rgba(246, 242, 234, 0.25);
+  overflow: hidden;
+}
+.cue i::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -40%;
+  width: 1px;
+  height: 40%;
+  background: var(--amber);
+  animation: drip 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
-/* Keyframes defined locally — CSS Modules scopes animation-name references,
-   so global keyframes would not match. */
-@keyframes mw-rise {
+/* a quiet caption as the first sun touches the peaks */
+.dawn {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 13vh;
+  text-align: center;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(1.2rem, 2.2vw, 1.7rem);
+  color: var(--ink-light);
+  text-shadow: 0 2px 24px rgba(3, 6, 18, 0.55);
+  opacity: clamp(0, (var(--q, 0) - 0.55) * 4, 1);
+  transform: translate3d(0, calc((1 - clamp(0, (var(--q, 0) - 0.55) * 4, 1)) * 14px), 0);
+  pointer-events: none;
+}
+
+@keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(26px);
+    transform: translate3d(0, 24px, 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
-@keyframes mw-cue {
-  0%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.5;
+@keyframes drip {
+  from {
+    top: -40%;
   }
-  50% {
-    transform: translateY(9px);
-    opacity: 1;
+  to {
+    top: 100%;
   }
+}
+
+:global(html.rm) .inner {
+  opacity: 1;
+  transform: none;
+}
+:global(html.rm) .dawn {
+  display: none;
 }

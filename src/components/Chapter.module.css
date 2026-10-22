@@ -1,0 +1,93 @@
+.chapter {
+  position: relative;
+  height: 150vh;
+  height: 150svh;
+}
+.sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  overflow: hidden;
+}
+.inner {
+  --in: clamp(0, var(--q, 0) * 3, 1);
+  --out: clamp(0, (var(--q, 0) - 0.74) * 3.8, 1);
+  position: relative;
+  text-align: center;
+  color: var(--ink-light);
+  opacity: calc(1 - var(--out));
+  transform: translate3d(0, calc(var(--out) * -7vh), 0);
+  text-shadow: 0 2px 30px rgba(3, 6, 12, 0.5);
+}
+.inner::before {
+  content: "";
+  position: absolute;
+  inset: -30% -25%;
+  z-index: -1;
+  background: radial-gradient(closest-side, rgba(4, 7, 12, 0.5), transparent);
+  pointer-events: none;
+}
+
+.no {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+.no span {
+  margin-left: 8px;
+  opacity: 0.6;
+}
+.range {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+}
+.name {
+  margin-top: 18px;
+  font-size: clamp(3rem, 9.2vw, 8.4rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: 0.24em;
+}
+.word {
+  display: inline-flex;
+  overflow: hidden;
+  padding: 0.04em 0 0.12em;
+}
+.ch {
+  display: inline-block;
+}
+.tagline {
+  margin: 22px auto 0;
+  max-width: 520px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(1.15rem, 2vw, 1.5rem);
+  line-height: 1.4;
+  opacity: 0.94;
+}
+
+:global(html.js:not(.rm)) .no,
+:global(html.js:not(.rm)) .range {
+  opacity: calc(var(--in) * 0.85);
+}
+:global(html.js:not(.rm)) .ch {
+  transform: translate3d(0, calc((1 - clamp(0, var(--q, 0) * 4.4 - var(--i) * 0.035, 1)) * 112%), 0);
+}
+:global(html.js:not(.rm)) .tagline {
+  opacity: clamp(0, var(--q, 0) * 3.4 - 0.75, 0.94);
+  transform: translate3d(0, calc((1 - clamp(0, var(--q, 0) * 3.4 - 0.75, 1)) * 16px), 0);
+}

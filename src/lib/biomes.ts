@@ -5,7 +5,7 @@ export const BIOMES: Biome[] = [
   {
     id: "snowline",
     name: "The Frozen Roof",
-    tagline: "Thin air, hard light. Almost nothing lives this high — almost.",
+    tagline: "Thin air, hard light. Almost nothing lives this high. Almost.",
     band: [3800, 5500],
   },
   {
@@ -35,7 +35,7 @@ export const BIOMES: Biome[] = [
   {
     id: "floor",
     name: "The Warm Lowlands",
-    tagline: "Near sea level — where most cats actually live.",
+    tagline: "Near sea level, where most cats actually live.",
     band: [0, 200],
   },
 ];
@@ -56,80 +56,3 @@ export function biomeIndexForAltitude(altitudeM: number): number {
   const b = biomeForAltitude(altitudeM);
   return BIOMES.findIndex((x) => x.id === b.id);
 }
-
-export interface BiomeStop {
-  /** scroll progress, 0 (top) → 1 (bottom) */
-  at: number;
-  skyTop: string;
-  skyBottom: string;
-  /** atmospheric haze color (rgba) */
-  fog: string;
-  /** warm/cool accent light */
-  light: string;
-  /** parallax ridge / foliage silhouette color */
-  ridge: string;
-}
-
-/**
- * Color anchors for the continuous background wash. The renderer interpolates
- * between adjacent stops by scroll progress, so the world shifts smoothly:
- * icy white → sage → misty teal → forest green → deep emerald → golden dusk.
- */
-export const BIOME_STOPS: BiomeStop[] = [
-  {
-    at: 0.0,
-    skyTop: "#e9f1f6",
-    skyBottom: "#c2d6e3",
-    fog: "rgba(244,250,255,0.55)",
-    light: "#cfe0ee",
-    ridge: "#aebfce",
-  },
-  {
-    at: 0.16,
-    skyTop: "#d4dcd5",
-    skyBottom: "#9fb1a3",
-    fog: "rgba(228,236,232,0.42)",
-    light: "#bccabb",
-    ridge: "#8b9d8c",
-  },
-  {
-    at: 0.34,
-    skyTop: "#b7ccc5",
-    skyBottom: "#82a298",
-    fog: "rgba(222,234,230,0.6)",
-    light: "#a7c0b4",
-    ridge: "#6f9184",
-  },
-  {
-    at: 0.52,
-    skyTop: "#7fa06d",
-    skyBottom: "#43734a",
-    fog: "rgba(180,205,165,0.2)",
-    light: "#9cc06f",
-    ridge: "#356040",
-  },
-  {
-    at: 0.72,
-    skyTop: "#356048",
-    skyBottom: "#143726",
-    fog: "rgba(140,190,130,0.14)",
-    light: "#e9c66a",
-    ridge: "#0e2a1c",
-  },
-  {
-    at: 0.88,
-    skyTop: "#5d6e3a",
-    skyBottom: "#9c7d3f",
-    fog: "rgba(230,200,140,0.2)",
-    light: "#f0cf78",
-    ridge: "#5a4a2a",
-  },
-  {
-    at: 1.0,
-    skyTop: "#c89a4e",
-    skyBottom: "#6f5230",
-    fog: "rgba(240,210,150,0.26)",
-    light: "#ffe19a",
-    ridge: "#4a3720",
-  },
-];

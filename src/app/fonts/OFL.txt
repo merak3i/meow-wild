@@ -1,0 +1,4 @@
+Instrument Serif and Instrument Sans: Copyright 2022 The Instrument Serif / Instrument Sans Project Authors.
+JetBrains Mono: Copyright 2020 The JetBrains Mono Project Authors.
+All three are licensed under the SIL Open Font License, Version 1.1: https://openfontlicense.org
+Files taken from the Fontsource packages (@fontsource/instrument-serif, @fontsource-variable/instrument-sans, @fontsource-variable/jetbrains-mono), latin subset.

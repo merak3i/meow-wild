@@ -8,46 +8,28 @@ export type BiomeId =
   | "rainforest"
   | "floor";
 
-export type Markings =
-  | "rosette"
-  | "stripe"
-  | "spot"
-  | "plain"
-  | "dense"
-  | "cloud"
-  | "tabby";
-
-export type EarStyle = "round" | "pointed" | "tufted";
-export type Build = "stocky" | "standard" | "lean";
-export type TailStyle = "short" | "medium" | "long" | "fluffy";
 export type SizeClass = "big" | "medium" | "small" | "tiny";
 
-export interface CoatSpec {
-  /** main fur color */
-  base: string;
-  /** lighter underside / muzzle */
-  belly: string;
-  /** darker shading */
-  shade: string;
-  markings: Markings;
-  markColor: string;
-  ear: EarStyle;
-  build: Build;
-  tail: TailStyle;
-  /** iris color */
-  eye: string;
+export interface PhotoCredit {
+  author: string;
+  license: string;
+  licenseUrl?: string;
+  /** Wikimedia Commons file page */
+  source: string;
 }
 
 export interface Cat {
   id: string;
   name: string;
   latin: string;
-  /** headline altitude (m) used for ordering + the altitude readout */
+  /** headline altitude (m) used for ordering and the altitude readout */
   altitudeM: number;
   /** human-readable typical band, e.g. "3,000–5,000 m" */
   altitudeLabel: string;
-  /** striking record, e.g. "recorded as high as 5,859 m" */
+  /** striking record or note, e.g. "tracked at 5,859 m" */
   altitudeNote?: string;
+  /** highest altitude named in the label or note, when one is stated */
+  reachM?: number;
   biome: BiomeId;
   iucn: IUCN;
   /** head–body length range in cm (tail excluded) */
@@ -57,7 +39,9 @@ export interface Cat {
   /** the one vivid, true line */
   fact: string;
   sizeClass: SizeClass;
-  coat: CoatSpec;
+  /** coat tint, used for the halo behind the photograph */
+  tint: string;
+  credit: PhotoCredit;
 }
 
 export interface Biome {
