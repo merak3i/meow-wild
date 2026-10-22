@@ -28,7 +28,10 @@ import CatStation from "./CatStation";
 import Teaser from "./Teaser";
 import Ending from "./Ending";
 import SoundToggle from "./SoundToggle";
-import { Ambience } from "@/lib/audio/ambience";
+import { Ambience, CALL_GAIN } from "@/lib/audio/ambience";
+import { WalkRunner, type WalkState } from "@/lib/walk/runner";
+import type { WalkAt } from "@/lib/walkthrough";
+import WalkPlayer from "./Walk";
 import styles from "./Experience.module.css";
 
 interface StationRef {
@@ -47,9 +50,10 @@ interface StationRef {
   listening: boolean;
   live: boolean;
   liveListening: boolean;
-  /** when the cat came into full view (ms, 0: not in view), and whether it has called this visit */
+  /** when the cat came into full view (ms, 0: not in view), whether it has called this visit, and echoed as you left */
   seen: number;
   called: boolean;
+  echoed: boolean;
   /** the text block beside the cat, page coordinates: left, top, width, height */
   text: [number, number, number, number] | null;
 }
@@ -141,9 +145,108 @@ export default function Experience() {
     const onSound = (e: Event) => {
       const on = (e as CustomEvent<boolean>).detail;
       if (on) ambience.start();
-      else ambience.stop();
+      else {
+        walk.stop();
+        ambience.stop();
+      }
     };
     window.addEventListener("mw:sound", onSound);
+
+    // ---- the walk: Vismay takes you down, stop by stop ----
+    const stackedNow = () => window.innerWidth <= 900;
+    const targetFor = (at: WalkAt): number | null => {
+      const vh = window.innerHeight;
+      const sy = window.scrollY;
+      if (at.kind === "top") return 0;
+      if (at.kind === "station") {
+        const el = document.getElementById(`cat-${at.id}`);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        if (stackedNow()) {
+          // photo above the text: keep the cat in the upper part of the screen
+          const ph = el.querySelector<HTMLElement>("[data-photo]")?.getBoundingClientRect();
+          if (ph) return Math.max(0, ph.top + sy + ph.height / 2 - vh * 0.4);
+        }
+        return Math.max(0, r.top + sy + r.height / 2 - vh / 2);
+      }
+      if (at.kind === "after") {
+        const el = root.querySelector<HTMLElement>('[data-walk="after"]');
+        return el ? el.getBoundingClientRect().top + sy - vh * 0.08 : null;
+      }
+      const el = root.querySelectorAll<HTMLElement>(`[data-pin="${at.name}"]`)[at.index ?? 0];
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return r.top + sy + at.q * Math.max(0, r.height - vh);
+    };
+    const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const glide = (y: number, seconds: number) =>
+      new Promise<void>((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          resolve();
+        };
+        if (!lenis || seconds <= 0) {
+          window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior });
+          window.setTimeout(finish, 80);
+          return;
+        }
+        lenis.scrollTo(y, { duration: seconds, easing: ease, onComplete: finish });
+        window.setTimeout(finish, seconds * 1000 + 700);
+      });
+    const walk = new WalkRunner({
+      ambience,
+      reduced,
+      scrollTo: glide,
+      targetFor,
+      hasCall: (id) => CALL_GAIN[id] !== undefined && id !== "domestic-cat",
+      soundOn: () => window.dispatchEvent(new CustomEvent("mw:sound", { detail: true })),
+      soundOff: () => window.dispatchEvent(new CustomEvent("mw:sound", { detail: false })),
+      emit: (state: WalkState) => window.dispatchEvent(new CustomEvent("mw:walk-state", { detail: state })),
+    });
+    const onWalk = (e: Event) => {
+      const cmd = (e as CustomEvent<string>).detail;
+      if (cmd === "start") walk.start();
+      else if (cmd === "restart") walk.start(0);
+      else if (cmd === "toggle") walk.toggle();
+      else if (cmd === "next") walk.next();
+      else if (cmd === "prev") walk.prev();
+      else if (cmd === "stop") walk.stop();
+      else if (cmd === "resume") walk.resume();
+    };
+    window.addEventListener("mw:walk", onWalk);
+    // scrolling by hand while the walk runs: it steps aside
+    const onHand = (e: Event) => {
+      if (walk.state.mode !== "playing" && walk.state.mode !== "paused") return;
+      if ((e.target as Element | null)?.closest?.("[data-walk-ui]")) return;
+      if (e.type === "keydown") {
+        const k = (e as KeyboardEvent).key;
+        if (!["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"].includes(k)) return;
+      }
+      walk.takeover();
+    };
+    window.addEventListener("wheel", onHand, { passive: true });
+    window.addEventListener("touchmove", onHand, { passive: true });
+    window.addEventListener("keydown", onHand);
+    const onWalkKey = (e: KeyboardEvent) => {
+      if (!walk.active || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.("input, textarea, [contenteditable]")) return;
+      if (e.key === "Escape") walk.stop();
+      else if (e.key === " " || e.key === "k") {
+        if (target?.closest?.("button, a, summary")) return;
+        e.preventDefault();
+        walk.toggle();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        walk.next();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        walk.prev();
+      }
+    };
+    window.addEventListener("keydown", onWalkKey);
 
     const timeline = new Timeline();
     const sample: WorldSample = { a: "hero", b: "hero", t: 0, raw: 0 };
@@ -165,6 +268,8 @@ export default function Experience() {
     let stations: StationRef[] = [];
     let pins: PinRef[] = [];
     const pinByName = new Map<string, PinRef>();
+    const voiceAfter = new Map<HTMLElement, string>();
+    const boomed = new Set<HTMLElement>();
 
     const measure = () => {
       const sy = window.scrollY;
@@ -194,6 +299,7 @@ export default function Experience() {
           liveListening: old?.liveListening ?? false,
           seen: old?.seen ?? 0,
           called: old?.called ?? false,
+          echoed: old?.echoed ?? false,
           text: dr ? [dr.left, dr.top + sy, dr.width, dr.height] : null,
         };
       });
@@ -203,6 +309,14 @@ export default function Experience() {
       });
       pinByName.clear();
       for (const p of pins) if (!pinByName.has(p.name)) pinByName.set(p.name, p);
+      // the cat each chapter and teaser leads to, if it has a voice of its own (no borrowed voices)
+      voiceAfter.clear();
+      const byTop = [...stations].filter((s) => !s.sticky).sort((a, b) => a.top - b.top);
+      for (const p of pins) {
+        if (p.name !== "chapter" && p.name !== "teaser") continue;
+        const next = byTop.find((s) => s.top > p.top);
+        if (next && CALL_GAIN[next.id] !== undefined) voiceAfter.set(p.el, next.id);
+      }
       timeline.measure(root);
       trackH = hud.track?.clientHeight ?? 0;
       renderer?.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio || 1);
@@ -363,6 +477,14 @@ export default function Experience() {
         if (y + vh < p.top - vh * 0.25 || y > p.top + p.height + vh * 0.25) continue;
         const qq = clamp((y - p.top) / Math.max(p.height - vh, 1), 0, 1);
         p.q = qq;
+        if (p.name === "chapter") {
+          if (qq <= 0 || qq >= 1) boomed.delete(p.el);
+          else if (qq > 0.05 && qq < 0.4 && !boomed.has(p.el) && ambience.running) {
+            const id = voiceAfter.get(p.el);
+            if (id) ambience.boom(id);
+            boomed.add(p.el);
+          }
+        }
         if (Math.abs(qq - p.last) > 0.0004) {
           p.el.style.setProperty("--q", qq.toFixed(4));
           p.last = qq;
@@ -403,14 +525,26 @@ export default function Experience() {
         }
         storyCats.set(worldOf(st.id), [left, top, st.w, st.h]);
         if (st.text) storyText.set(worldOf(st.id), [st.text[0], st.text[1] - y, st.text[2], st.text[3]]);
-        // a cat that has been in full view for a moment calls, once per visit, panned to where it stands
+        // a cat calls once per visit, panned to where it stands: its voice swells up as it arrives and
+        // lands as its call; if you turn back first the swell falls away; as you leave, it echoes
+        const pan = ((left + st.w / 2) / window.innerWidth) * 2 - 1;
+        if (soundOn && o < 2.4 && o > -0.6) ambience.prepare(st.id);
         const inView = Math.abs(o) < 0.32 && (st.last > 0.6 || !particles);
+        const arriving = Math.abs(o) < 0.42 && (st.last > 0.3 || !particles);
         if (!inView) st.seen = 0;
         else if (!st.seen) st.seen = now;
-        if (Math.abs(o) > 0.9) st.called = false;
-        if (soundOn && !st.called && st.seen && now - st.seen > 700 && st.id !== "domestic-cat") {
-          const pan = ((left + st.w / 2) / window.innerWidth) * 2 - 1;
-          if (ambience.call(st.id, pan)) st.called = true;
+        if (Math.abs(o) > 0.9) {
+          st.called = false;
+          st.echoed = false;
+        }
+        if (soundOn && st.id !== "domestic-cat") {
+          if (!st.called && arriving && ambience.arrive(st.id, pan)) st.called = true;
+          else if (!st.called && st.seen && now - st.seen > 700 && ambience.call(st.id, pan)) st.called = true;
+          if (st.called && Math.abs(o) > 0.62 && ambience.cancel(st.id)) st.called = false;
+          if (st.called && !st.echoed && Math.abs(o) > 0.55) {
+            ambience.depart(st.id, pan);
+            st.echoed = true;
+          }
         }
         if (st.img && st.img.loading === "lazy" && o < 3.2) st.img.loading = "eager";
         buildFor(st);
@@ -443,6 +577,22 @@ export default function Experience() {
         if (st.live && photo > 0.002) {
           liveCats.push({ id: st.id, rect: [left, top, st.w, st.h], opacity: photo, fade: st.sticky ? 0 : 1, sill: st.sticky ? 1 : 0 });
         }
+      }
+
+      // ---- between cats: the next one's voice drifts through the chapter and teaser cards ----
+      if (soundOn) {
+        let gId: string | null = null;
+        let gLevel = 0;
+        for (const p of pins) {
+          if (p.name !== "chapter" && p.name !== "teaser") continue;
+          if (y + vh < p.top || y > p.top + p.height) continue;
+          const lv = Math.pow(Math.sin(Math.PI * p.q), 0.6);
+          if (lv > gLevel) {
+            gLevel = lv;
+            gId = voiceAfter.get(p.el) ?? null;
+          }
+        }
+        ambience.ghost(gId, gLevel, Math.min(1, Math.abs(vel) * 0.8));
       }
 
       // ---- sound follows the world ----
@@ -547,6 +697,12 @@ export default function Experience() {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("mw:jump", onJump);
       window.removeEventListener("mw:sound", onSound);
+      window.removeEventListener("mw:walk", onWalk);
+      window.removeEventListener("wheel", onHand);
+      window.removeEventListener("touchmove", onHand);
+      window.removeEventListener("keydown", onHand);
+      window.removeEventListener("keydown", onWalkKey);
+      walk.stop();
       document.removeEventListener("visibilitychange", onVis);
       ro.disconnect();
       ambience.dispose();
@@ -565,6 +721,7 @@ export default function Experience() {
       <canvas ref={liveRef} className={styles.live} aria-hidden="true" />
       <Instrument />
       <SoundToggle />
+      <WalkPlayer />
 
       <main className={styles.main}>
         <Hero />

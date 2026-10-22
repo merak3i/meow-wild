@@ -51,7 +51,7 @@ export default function Ending() {
         </div>
       </div>
 
-      <div className={styles.after}>
+      <div className={styles.after} data-walk="after">
         <p className={styles.reflection}>
           You descended <strong>5,500 metres</strong> past <strong>{stats.total} wild cats</strong>.
           <br />
@@ -104,7 +104,7 @@ export default function Ending() {
           <ul>
             {SOUND_CREDITS.map((s) => (
               <li key={s.id}>
-                <span className={styles.cn}>{s.id === "music" ? "Music" : nameOf.get(s.id) ?? s.id}</span>
+                <span className={styles.cn}>{s.label ?? nameOf.get(s.id) ?? s.id}</span>
                 <span>
                   {s.what}
                   {", "}
@@ -128,7 +128,8 @@ export default function Ending() {
             built from a single recorded cough. Edits of share-alike recordings are shared under the same licence.
             The Andean cat, the black-footed cat and the rusty-spotted cat have no recording free to use, so they
             stay silent. Wind, rain, insects, birds, water and frogs are not recordings: your browser synthesises
-            them, following the same landscape you see.
+            them, following the same landscape you see. Between cats, your browser reverses, slows and echoes the
+            same recordings to score the crossing from one cat to the next.
           </p>
         </details>
 

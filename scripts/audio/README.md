@@ -22,6 +22,14 @@ python3 scripts/audio/master.py caracal
 
 With no ids it does every call and the music. Same sources in, same `.wav` and `.m4a` out; the `.webm` differs only in container metadata.
 
+## The walk
+
+`beats.py` writes the walk's beat, "a slow way down": 88 BPM in D minor, 96 bars, every sound synthesised (band-limited saw pads, FM electric piano, an additive felt piano, a mallet arpeggio, kick, rim, hats, shaker and sub), mixed and mastered to -16.5 LUFS. It opens and closes on pad and piano alone, so its loop point is quiet. Run it with no input: `python3 scripts/audio/beats.py`.
+
+`walk.py` turns Voicebox takes of the narration into the lines the page plays. Voicebox speaks at a natural, brisk pace and ignores style instructions for a cloned voice, so the calm is made here: the take is trimmed to its words, slowed by about 10% with WSOLA (pitch kept), every pause between phrases is stretched by half, the voice is warmed and de-essed, and each line is levelled to -19 LUFS. Put one WAV per line in a folder, named after the line ids in `src/lib/walkthrough.ts`, then `python3 scripts/audio/walk.py that-folder`.
+
+The takes come from a Voicebox profile, "Vismay - Walk", made from the same Patherle announcement as "Vismay - Patherle" but trimmed to end on a full sentence. The original reference stops mid-word ("a multi-level..."), and the model would open each take by finishing it.
+
 ## Licences to keep in mind
 
 The site is non-commercial, and some of its sound only allows that: the three BBC recordings (clouded leopard, serval, sand cat) under the BBC RemArc licence, the margay (CC BY-NC-SA 4.0) and the music (CC BY-NC 3.0). The four Berlin archive edits are CC BY-SA 3.0 DE, so these edits are shared under the same licence. Three cats have no recording at all: the Andean mountain cat, the rusty-spotted cat and the black-footed cat stay silent rather than borrow another species' voice.

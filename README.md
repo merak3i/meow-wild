@@ -22,7 +22,13 @@ Next.js 16 (App Router), React 19, Lenis for scroll. No other runtime dependenci
 
 **The cats** assemble from particles of their own photograph, then come alive (`lib/world/living.ts`): each cutout has a hand-placed rig (`lib/rigs.ts`) for breathing, blinking, ear flicks, a tail wave and a head that follows the pointer or whatever its world is doing, and a relief map that relights it with its world's sun.
 
-**Sound** (`lib/audio/ambience.ts`), off until you turn it on: wind, drip, birds, cicadas, frogs, crickets and running water, all synthesized and mixed by each world's numbers, a music bed that darkens as you descend, and each cat's real call, once per visit, after it has been in view for a moment. The house cat purrs.
+**Sound** (`lib/audio/ambience.ts`), off until you turn it on: wind, drip, birds, cicadas, frogs, crickets and running water, all synthesized and mixed by each world's numbers, a music bed that darkens as you descend, and each cat's real call, once per visit, as it arrives. The house cat purrs.
+
+**The crossings between cats** are scored like a film, from the same recordings, processed in the browser. As a cat arrives, its voice swells up out of a long reverb (the first moments of its call, reversed, reverberated and reversed back, rendered once in an `OfflineAudioContext`) and the call lands on the swell's peak, with its own voice an octave down for weight while the landscape holds its breath. Turn back before it calls and the swell falls away. As you leave, the call comes back once, slower and darker, down the valley. While a chapter or teaser holds the screen, the next cat's voice drifts through it in slowed grains, and each chapter title lands on a low boom made from that voice. Cats without a recording stay silent: no voice is borrowed.
+
+**The walk** (`lib/walkthrough.ts`, `lib/walk/runner.ts`, `components/Walk.tsx`): Vismay takes you down, stop by stop, in his own cloned voice over an ambient beat that takes the music bed's place. Each cat calls first, then he speaks; captions follow him. Space pauses, the arrows skip, Escape ends it, and scrolling by hand steps the walk aside until you pick it up again. Everything waits on the audio clock, so a pause stops the walk mid-sentence and it carries on from the same word.
+
+**The cursor** is a paw, drawn by `scripts/cursor/paw.py` (`public/cursor`), with pink beans over anything you can press.
 
 **Fallbacks.** Without WebGL2 the page keeps a flat painted sky and plain photographs. With reduced motion there are no particles or scroll effects and every world holds still. Without JavaScript it is a long, readable page.
 
@@ -43,4 +49,5 @@ In development, `window.__mw` exposes the ambience, living and story layers in t
 
 - Photographs: Wikimedia Commons, credited in `public/cats/CREDITS.md` and on the page. How they became cutouts: [`scripts/cutouts/`](scripts/cutouts/README.md).
 - Sound: credited in `src/lib/sounds.ts` and on the page. How the clips were edited: [`scripts/audio/`](scripts/audio/README.md). Some recordings and the music are licensed for non-commercial use only.
+- The walk: narration generated in Voicebox (Qwen3-TTS 1.7B) from Vismay's own voice, then slowed and levelled by `scripts/audio/walk.py`; the beat, "a slow way down", is synthesized from nothing by `scripts/audio/beats.py`.
 - Fonts: Instrument Serif, Instrument Sans and JetBrains Mono, self-hosted under the SIL Open Font License (`src/app/fonts/OFL.txt`).

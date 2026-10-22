@@ -5,8 +5,10 @@
  * the BBC's RemArc licence, which allows non-commercial use only.
  */
 export interface SoundCredit {
-  /** cat id, or "music" */
+  /** cat id, or "music", "walk", "beat" */
   id: string;
+  /** shown instead of the cat's name for entries that are not a cat */
+  label?: string;
   /** what you hear */
   what: string;
   author: string;
@@ -160,7 +162,26 @@ export const SOUND_CREDITS: SoundCredit[] = [
     license: "Public domain",
   },
   {
+    id: "walk",
+    label: "The walk",
+    what: "Narration in Vismay's own voice, cloned from his recording and generated on his computer with Voicebox (Qwen3-TTS)",
+    author: "Vismay Hegde",
+    via: "Meow Creative Haus",
+    source: "https://meowcreativehaus.xyz",
+    license: "© 2026 Meow Creative Haus",
+  },
+  {
+    id: "beat",
+    label: "Walk music",
+    what: "A slow way down (2026), an ambient beat made for this page, every sound synthesised in code",
+    author: "merak3i",
+    via: "Meow Creative Haus",
+    source: "https://meowcreativehaus.xyz",
+    license: "© 2026 Meow Creative Haus",
+  },
+  {
     id: "music",
+    label: "Music",
     what: "The Dark Glow of the Mountains (2009)",
     author: "Chris Zabriskie",
     via: "Internet Archive",

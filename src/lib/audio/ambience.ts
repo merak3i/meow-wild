@@ -11,6 +11,15 @@
  *    an Opus fallback), played once as it appears,
  *    panned to where it stands, with a little air from the landscape around it.
  *    The house cat at the window purrs for as long as you stay.
+ * 4. The crossings between cats, scored like a film from those same
+ *    recordings, processed here in the browser: the arriving cat's voice
+ *    swells up in reverse out of a long reverb and lands as its call, with the
+ *    same voice an octave down for weight; the cat you leave echoes away down
+ *    the valley; while a chapter or teaser holds the screen, the next cat's
+ *    voice drifts through it slowed and far off; and each chapter title lands
+ *    on a low boom made from that voice.
+ * 5. The walk: Vismay's narration (public/sound/walk) over an ambient beat,
+ *    which takes the music bed's place while the walk runs.
  */
 
 type Ctx = AudioContext;
@@ -76,6 +85,86 @@ const PURR_XF = 0.14;
 /** music level in the mix: about -28 LUFS at the output, ducked 7 dB under a call */
 const MUSIC = 0.7;
 
+/** how much low weight each cat's call gets when it lands: its own voice an octave down, under 220 Hz */
+const CINE_WEIGHT: Record<string, number> = {
+  "snow-leopard": 0.55,
+  puma: 0.6,
+  "eurasian-lynx": 0.45,
+  caracal: 0.4,
+  "clouded-leopard": 0.6,
+  leopard: 0.9,
+  serval: 0.35,
+  tiger: 1,
+  margay: 0.2,
+  jaguar: 0.95,
+  "sand-cat": 0.25,
+  "pallass-cat": 0.3,
+  "asian-golden-cat": 0.35,
+  ocelot: 0.3,
+  "fishing-cat": 0.35,
+};
+/** length of the reversed-reverb swell that rises into a call (seconds) */
+export const SWELL_S = 1.9;
+/** ghost voices between cats, relative to a call */
+const GHOST = 0.9;
+/** the walk's beat under the narration, and how far it dips in the speech band while Vismay talks (dB) */
+const BEATS = 0.5;
+/** the synthesised landscape sits under the cats: this is its level on the master */
+const AMB = 0.55;
+const BEATS_DIP = -8;
+
+/** a Hann window for grains */
+const HANN = new Float32Array(64).map((_, i) => 0.5 - 0.5 * Math.cos((i / 63) * Math.PI * 2));
+
+interface CallInfo {
+  /** where any sound begins (seconds): a call plays from here, quiet breaths before it included */
+  lead: number;
+  /** where the voice proper begins (seconds): the swell peaks and the weight lands exactly here */
+  onset: number;
+  /** 20 ms frames with voice in them (start times, seconds): where ghost grains come from */
+  voiced: Float32Array;
+}
+
+/** a cat's call scheduled behind its swell, until it has begun */
+interface Arrival {
+  id: string;
+  at: number;
+  end: number;
+  swell: AudioBufferSourceNode;
+  swellGain: GainNode;
+  call: AudioBufferSourceNode;
+  sub: AudioBufferSourceNode | null;
+}
+
+/** a line of narration in flight */
+export interface Spoken {
+  start: number;
+  end: number;
+  stop: () => void;
+}
+
+/** where a call has a voice, and where it starts */
+function analyse(buf: AudioBuffer): CallInfo {
+  const d = buf.getChannelData(0);
+  const hop = Math.max(1, Math.round(buf.sampleRate * 0.02));
+  const n = Math.floor(d.length / hop);
+  const rms = new Float32Array(n);
+  let peak = 1e-9;
+  for (let f = 0; f < n; f++) {
+    let sum = 0;
+    for (let i = f * hop, e = i + hop; i < e; i++) sum += d[i] * d[i];
+    rms[f] = Math.sqrt(sum / hop);
+    if (rms[f] > peak) peak = rms[f];
+  }
+  let on = 0;
+  while (on < n && rms[on] < peak * 0.12) on++;
+  let lead = 0;
+  while (lead < on && rms[lead] < peak * 0.012) lead++;
+  const voiced: number[] = [];
+  for (let f = 0; f < n - 12; f++) if (rms[f] > peak * 0.2) voiced.push(f * 0.02);
+  return { lead: Math.max(0, lead * 0.02 - 0.03), onset: Math.max(0, on * 0.02 - 0.012), voiced: Float32Array.from(voiced) };
+}
+
 /** equal-power fade curves for the purr grains */
 const FADE_IN = new Float32Array(32).map((_, i) => Math.sin((i / 31) * Math.PI * 0.5));
 const FADE_OUT = new Float32Array(32).map((_, i) => Math.cos((i / 31) * Math.PI * 0.5));
@@ -94,7 +183,7 @@ function soundExt(): "m4a" | "webm" {
 }
 
 /** a decaying stereo noise tail: an outdoor space rather than a room */
-function impulse(ctx: Ctx, seconds: number, decay: number): AudioBuffer {
+function impulse(ctx: BaseAudioContext, seconds: number, decay: number): AudioBuffer {
   const len = Math.floor(ctx.sampleRate * seconds);
   const buf = ctx.createBuffer(2, len, ctx.sampleRate);
   for (let c = 0; c < 2; c++) {
@@ -134,6 +223,36 @@ export class Ambience {
   private purrLast = -1;
   private voiceLevel = 0;
   private ext: "m4a" | "webm" = "m4a";
+  // cinematic crossings
+  private info = new Map<string, CallInfo>();
+  private swells = new Map<string, AudioBuffer>();
+  private swelling = new Set<string>();
+  private arrival: Arrival | null = null;
+  private echoed = new Map<string, number>();
+  private boomed = new Map<string, number>();
+  private cineIn: GainNode | null = null;
+  private echoIn: GainNode | null = null;
+  private ghostBus: GainNode | null = null;
+  private ghostTone: BiquadFilterNode | null = null;
+  private ghostId: string | null = null;
+  private ghostLevel = 0;
+  private ghostMotion = 0;
+  private ghostNext = 0;
+  private sendCine: GainNode | null = null;
+  /** the synthesised landscape, as one: it holds its breath while a cat arrives */
+  private ambBus: GainNode | null = null;
+  private hushUntil = 0;
+  private ambTarget = AMB;
+  private ghostSet = { level: -1, tone: -1 };
+  // the walk
+  private walking = false;
+  private beats: HTMLAudioElement | null = null;
+  private beatsGain: GainNode | null = null;
+  private beatsDip: BiquadFilterNode | null = null;
+  private voiceBus: GainNode | null = null;
+  private lines = new Map<string, Promise<AudioBuffer | null>>();
+  private spoken: Spoken | null = null;
+  private ambScale = 1;
 
   get running() {
     return this.on;
@@ -158,7 +277,9 @@ export class Ambience {
     this.master.gain.setTargetAtTime(0.55, ctx.currentTime, 0.6);
     this.on = true;
     this.load();
-    if (this.music) {
+    if (this.walking) {
+      this.beats?.play().catch(() => {});
+    } else if (this.music) {
       this.music.play().catch(() => {});
       this.musicGain?.gain.setTargetAtTime(MUSIC, ctx.currentTime, 1.5);
     }
@@ -176,6 +297,7 @@ export class Ambience {
     window.setTimeout(() => {
       if (!this.on) {
         this.music?.pause();
+        this.beats?.pause();
         ctx.suspend().catch(() => {});
       }
     }, 1200);
@@ -185,6 +307,8 @@ export class Ambience {
     window.clearInterval(this.timer);
     this.music?.pause();
     this.music = null;
+    this.beats?.pause();
+    this.beats = null;
     this.purrOn = false;
     this.ctx?.close().catch(() => {});
     this.ctx = null;
@@ -201,45 +325,529 @@ export class Ambience {
         .then((b) => ctx.decodeAudioData(b))
         .then((buf) => {
           this.buffers.set(id, buf);
+          if (id !== "domestic-cat") this.info.set(id, analyse(buf));
         })
         .catch(() => {});
     }
   }
 
+  /** the stereo position for a cat standing at `pan` (-1 left .. 1 right) */
+  private panner(pan: number, spread = 0.6): StereoPannerNode {
+    const p = (this.ctx as Ctx).createStereoPanner();
+    p.pan.value = Math.max(-0.85, Math.min(0.85, pan * spread));
+    return p;
+  }
+
+  /** duck the music bed (or the walk's beat) from `t` for `dur` seconds, to `depth` of its level */
+  private duck(t: number, dur: number, depth: number) {
+    const g = this.walking ? this.beatsGain?.gain : this.musicGain?.gain;
+    const full = this.walking ? BEATS : MUSIC;
+    if (!g) return;
+    g.cancelScheduledValues(t);
+    g.setTargetAtTime(full * depth, t, 0.25);
+    g.setTargetAtTime(full, t + dur + 0.4, 1.4);
+  }
+
   /**
-   * A cat has just appeared. Play its recording once (not again for a while),
-   * panned to where it stands on screen (-1 left .. 1 right).
+   * Play a cat's call at `t`, from its first sound, panned to where it stands,
+   * with a touch of the big space and, for the heavier cats, its own voice an
+   * octave down under 220 Hz so the call lands with some weight.
    */
-  call(id: string, pan = 0) {
+  private playCall(id: string, pan: number, t: number): { src: AudioBufferSourceNode; sub: AudioBufferSourceNode | null; end: number } | null {
     const ctx = this.ctx;
-    if (!this.on || !ctx || !this.callBus || id === "domestic-cat") return false;
     const buf = this.buffers.get(id);
-    if (!buf) return false;
-    const now = ctx.currentTime;
-    // one voice at a time: the next cat waits for this one to finish
-    if (now < this.busyUntil) return false;
-    const last = this.lastCall.get(id) ?? -1e9;
-    if (now - last < 40) return false;
-    this.lastCall.set(id, now);
+    if (!ctx || !buf || !this.callBus) return null;
+    const info = this.info.get(id);
+    const lead = info?.lead ?? 0;
+    const onset = info?.onset ?? 0;
+    const hit = t + (onset - lead);
     const src = ctx.createBufferSource();
     src.buffer = buf;
     const g = ctx.createGain();
     g.gain.value = CALL_GAIN[id] ?? 0.6;
-    const p = ctx.createStereoPanner();
-    p.pan.value = Math.max(-0.7, Math.min(0.7, pan * 0.6));
+    const p = this.panner(pan);
     src.connect(g).connect(p).connect(this.callBus);
-    const t = now + 0.05;
-    src.start(t);
-    // duck the music under the call
-    if (this.musicGain) {
-      const mg = this.musicGain.gain;
-      mg.cancelScheduledValues(t);
-      mg.setTargetAtTime(MUSIC * 0.45, t, 0.25);
-      mg.setTargetAtTime(MUSIC, t + buf.duration + 0.4, 1.4);
+    if (this.sendCine) p.connect(this.sendCine);
+    src.start(t, lead);
+    let sub: AudioBufferSourceNode | null = null;
+    const w = CINE_WEIGHT[id] ?? 0;
+    if (w > 0.05 && this.master) {
+      sub = ctx.createBufferSource();
+      sub.buffer = buf;
+      sub.playbackRate.value = 0.5;
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 220;
+      lp.Q.value = 0.6;
+      const sg = ctx.createGain();
+      sg.gain.setValueAtTime(0, hit);
+      sg.gain.linearRampToValueAtTime(w * 1.25, hit + 0.025);
+      sg.gain.exponentialRampToValueAtTime(0.0008, hit + 1.15);
+      sub.connect(lp).connect(sg).connect(this.master);
+      sub.start(hit, onset);
+      sub.stop(hit + 1.25);
     }
-    this.busyUntil = t + buf.duration + 1.2;
-    this.speaking = { id, until: t + buf.duration };
+    return { src, sub, end: t + (buf.duration - lead) };
+  }
+
+  /** the landscape goes quiet from `t` for `dur` seconds (to `depth` of its level), then comes back */
+  private hush(t: number, dur: number, depth: number) {
+    const g = this.ambBus?.gain;
+    if (!g) return;
+    g.cancelScheduledValues(t);
+    g.setTargetAtTime(AMB * depth, t, 0.35);
+    g.setTargetAtTime(AMB, t + dur, 1.2);
+    this.hushUntil = Math.max(this.hushUntil, t + dur + 1.5);
+    this.ambTarget = AMB;
+  }
+
+  /** may this cat call now? one voice at a time, and not the same cat twice within 40 s */
+  private free(id: string, now: number) {
+    if (now < this.busyUntil) return false;
+    return now - (this.lastCall.get(id) ?? -1e9) >= 40;
+  }
+
+  /**
+   * A cat has just appeared and there is no swell ready for it yet: play its
+   * recording once, panned to where it stands on screen (-1 left .. 1 right).
+   */
+  call(id: string, pan = 0) {
+    const ctx = this.ctx;
+    if (!this.on || !ctx || !this.callBus || id === "domestic-cat") return false;
+    const now = ctx.currentTime;
+    if (!this.buffers.has(id) || !this.free(id, now)) return false;
+    const t = now + 0.05;
+    const c = this.playCall(id, pan, t);
+    if (!c) return false;
+    this.lastCall.set(id, t);
+    this.duck(t, c.end - t, 0.45);
+    this.hush(t, c.end - t, 0.5);
+    this.busyUntil = c.end + 1.2;
+    this.speaking = { id, until: c.end };
     return true;
+  }
+
+  /** Render, once, the swell that rises into a cat's call. Cheap, and done before the cat arrives. */
+  prepare(id: string) {
+    if (!this.ctx || this.swells.has(id) || this.swelling.has(id) || !this.info.has(id)) return;
+    this.swelling.add(id);
+    this.renderSwell(id)
+      .then((b) => {
+        if (b) this.swells.set(id, b);
+      })
+      .catch(() => {})
+      .finally(() => this.swelling.delete(id));
+  }
+
+  /**
+   * The pre-verb: the first moments of the call, reversed, sent through a long
+   * reverb, and reversed back, so the reverb rises toward the call instead of
+   * trailing after it, and peaks on the very sample the call begins.
+   */
+  private async renderSwell(id: string): Promise<AudioBuffer | null> {
+    const ctx = this.ctx;
+    const buf = this.buffers.get(id);
+    const info = this.info.get(id);
+    const W = window as unknown as { OfflineAudioContext?: typeof OfflineAudioContext; webkitOfflineAudioContext?: typeof OfflineAudioContext };
+    const OAC = W.OfflineAudioContext || W.webkitOfflineAudioContext;
+    if (!ctx || !buf || !info || !OAC) return null;
+    const sr = buf.sampleRate;
+    const rate = 0.92;
+    const o = Math.floor(info.onset * sr);
+    const segLen = Math.max(1, Math.min(Math.floor(1.3 * sr), buf.length - o));
+    const tOn = Math.round(segLen / rate);
+    const len = tOn + Math.ceil(SWELL_S * sr) + 2;
+    const off = new OAC(2, len, sr);
+    const rev = off.createBuffer(1, segLen, sr);
+    const sd = buf.getChannelData(0);
+    const rd = rev.getChannelData(0);
+    for (let i = 0; i < segLen; i++) rd[i] = sd[o + segLen - 1 - i];
+    const src = off.createBufferSource();
+    src.buffer = rev;
+    src.playbackRate.value = rate;
+    const conv = off.createConvolver();
+    conv.buffer = impulse(off, SWELL_S, 2.4);
+    const hp = off.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 170;
+    const lp = off.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 5200;
+    src.connect(conv).connect(hp).connect(lp).connect(off.destination);
+    src.start(0);
+    const out = await off.startRendering();
+    // reversed, the reverb of the call's first sound ends `len - 1 - tOn` samples in
+    const keep = len - 1 - tOn;
+    const swell = ctx.createBuffer(2, keep, sr);
+    let peak = 1e-9;
+    for (let c = 0; c < 2; c++) {
+      const y = out.getChannelData(Math.min(c, out.numberOfChannels - 1));
+      const d = swell.getChannelData(c);
+      for (let i = 0; i < keep; i++) {
+        const v = y[len - 1 - i];
+        d[i] = v;
+        if (Math.abs(v) > peak) peak = Math.abs(v);
+      }
+    }
+    const fadeIn = Math.floor(keep * 0.35);
+    const fadeOut = Math.floor(sr * 0.004);
+    const k = 0.8 / peak;
+    for (let c = 0; c < 2; c++) {
+      const d = swell.getChannelData(c);
+      for (let i = 0; i < keep; i++) {
+        let g = k;
+        if (i < fadeIn) g *= (i / fadeIn) * (i / fadeIn);
+        if (i > keep - fadeOut) g *= (keep - i) / fadeOut;
+        d[i] *= g;
+      }
+    }
+    return swell;
+  }
+
+  /**
+   * A cat is arriving: its voice swells up out of the reverb and the call lands
+   * on the swell's peak. Returns false when it cannot (no swell yet, another cat
+   * still calling, or this one called a moment ago); the caller then waits and
+   * uses call() as before.
+   */
+  arrive(id: string, pan = 0) {
+    const ctx = this.ctx;
+    if (!this.on || !ctx || !this.master || id === "domestic-cat") return false;
+    const swell = this.swells.get(id);
+    if (!swell || this.arrival) return false;
+    const now = ctx.currentTime;
+    if (!this.free(id, now)) return false;
+    const info = this.info.get(id);
+    const gap = info ? info.onset - info.lead : 0;
+    const t0 = now + 0.03;
+    // the call starts at `at` (quiet breaths first, if it has them); the swell peaks on its first real sound
+    const at = gap >= swell.duration ? t0 : t0 + swell.duration - gap;
+    const ts = at + gap - swell.duration;
+    const c = this.playCall(id, pan, at);
+    if (!c) return false;
+    const s = ctx.createBufferSource();
+    s.buffer = swell;
+    const sg = ctx.createGain();
+    sg.gain.value = CALL_GAIN[id] ?? 0.6;
+    const sp = this.panner(pan, 0.45);
+    s.connect(sg).connect(sp);
+    if (this.master) sp.connect(this.master);
+    if (this.sendCine) sp.connect(this.sendCine);
+    s.start(ts);
+    this.arrival = { id, at, end: c.end, swell: s, swellGain: sg, call: c.src, sub: c.sub };
+    this.lastCall.set(id, at);
+    this.busyUntil = c.end + 1.2;
+    this.speaking = { id, until: c.end };
+    const duckFrom = ts + swell.duration * 0.5;
+    this.duck(duckFrom, c.end - duckFrom, 0.45);
+    this.hush(ts, c.end - ts, 0.42);
+    return true;
+  }
+
+  /** The visitor turned back before the call began: let the swell fall away and keep the call for next time. */
+  cancel(id: string): boolean {
+    const ctx = this.ctx;
+    const a = this.arrival;
+    if (!ctx || !a || a.id !== id) return false;
+    const now = ctx.currentTime;
+    if (now > a.at - 0.06) return false;
+    a.swellGain.gain.cancelScheduledValues(now);
+    a.swellGain.gain.setTargetAtTime(0, now, 0.07);
+    try {
+      a.swell.stop(now + 0.45);
+      a.call.stop();
+      a.sub?.stop();
+    } catch {
+      /* already stopped */
+    }
+    this.arrival = null;
+    this.lastCall.delete(id);
+    this.busyUntil = now + 0.3;
+    this.speaking = null;
+    this.duck(now, 0, 1);
+    return true;
+  }
+
+  /** where a cat's call stands: "none", "pending" (behind its swell) or "playing", and when it ends */
+  callState(id: string): { state: "none" | "pending" | "playing"; end: number } {
+    const ctx = this.ctx;
+    if (!ctx) return { state: "none", end: 0 };
+    const now = ctx.currentTime;
+    const a = this.arrival;
+    if (a && a.id === id && now < a.end) return { state: now < a.at ? "pending" : "playing", end: a.end };
+    if (this.speaking && this.speaking.id === id && now < this.speaking.until) return { state: "playing", end: this.speaking.until };
+    return { state: "none", end: 0 };
+  }
+
+  /**
+   * The visitor is moving on from a cat that has called: its call comes back
+   * once more, slower and darker, from far down the valley.
+   */
+  depart(id: string, pan = 0) {
+    const ctx = this.ctx;
+    if (!this.on || !ctx || !this.echoIn || !this.cineIn || id === "domestic-cat") return;
+    const buf = this.buffers.get(id);
+    const started = this.lastCall.get(id);
+    if (!buf || started === undefined) return;
+    const now = ctx.currentTime;
+    if (now < started + 0.4 || now - started > 90) return;
+    if (now - (this.echoed.get(id) ?? -1e9) < 40) return;
+    // leaving while it still calls: the answer comes as the call ends, not over it
+    const end = this.speaking && this.speaking.id === id ? this.speaking.until : 0;
+    if (end - now > 3) return;
+    this.echoed.set(id, now);
+    const onset = this.info.get(id)?.onset ?? 0;
+    const rate = 0.86;
+    const dur = Math.min(3.6, (buf.duration - onset) / rate);
+    const t = Math.max(now + 0.04, end + 0.15);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = rate;
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 150;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 1500;
+    const g = ctx.createGain();
+    const level = (CALL_GAIN[id] ?? 0.6) * 0.85;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(level, t + 0.3);
+    g.gain.setTargetAtTime(0, t + Math.max(0.4, dur - 1.1), 0.35);
+    const p = this.panner(pan, 0.9);
+    src.connect(hp).connect(lp).connect(g).connect(p);
+    p.connect(this.echoIn);
+    p.connect(this.cineIn);
+    src.start(t, onset);
+    src.stop(t + dur + 0.1);
+  }
+
+  /**
+   * Between cats, while a chapter or teaser holds the screen: the next cat's
+   * voice, cut into grains, slowed an octave and scattered far off in the big
+   * reverb. `level` 0..1 follows the pinned section; `motion` 0..1 (scrolling)
+   * brightens it.
+   */
+  ghost(id: string | null, level: number, motion = 0) {
+    const ok = !!id && this.buffers.has(id) && (this.info.get(id)?.voiced.length ?? 0) > 0;
+    this.ghostId = ok ? id : null;
+    this.ghostLevel = ok ? Math.max(0, Math.min(1, level)) : 0;
+    this.ghostMotion = Math.max(0, Math.min(1, motion));
+  }
+
+  private ghostTick() {
+    const ctx = this.ctx;
+    if (!ctx || !this.ghostBus || !this.ghostTone) return;
+    const now = ctx.currentTime;
+    const lvl = this.ghostLevel * GHOST;
+    if (Math.abs(lvl - this.ghostSet.level) > 0.01) {
+      this.ghostBus.gain.setTargetAtTime(lvl, now, 0.6);
+      this.ghostSet.level = lvl;
+    }
+    const tone = 900 + 1800 * this.ghostMotion;
+    if (Math.abs(tone - this.ghostSet.tone) > 40) {
+      this.ghostTone.frequency.setTargetAtTime(tone, now, 0.5);
+      this.ghostSet.tone = tone;
+    }
+    // the landscape thins out a little while the voices drift through (unless a cat has it hushed)
+    const amb = AMB * (1 - 0.35 * this.ghostLevel);
+    if (this.ambBus && now > this.hushUntil && Math.abs(amb - this.ambTarget) > 0.01) {
+      this.ambBus.gain.setTargetAtTime(amb, now, 0.8);
+      this.ambTarget = amb;
+    }
+    const id = this.ghostId;
+    if (!id || this.ghostLevel < 0.02) {
+      this.ghostNext = now;
+      return;
+    }
+    const buf = this.buffers.get(id);
+    const info = this.info.get(id);
+    if (!buf || !info || !info.voiced.length) return;
+    let n = 0;
+    while (this.ghostNext < now + 0.4 && n++ < 8) {
+      const t = Math.max(this.ghostNext, now + 0.02);
+      const d = 0.38 + Math.random() * 0.42;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.playbackRate.value = 0.5 + Math.random() * 0.12;
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      const amp = 0.65 + Math.random() * 0.35;
+      g.gain.setValueCurveAtTime(HANN.map((v) => v * amp), t, d);
+      const p = ctx.createStereoPanner();
+      p.pan.value = Math.random() * 1.5 - 0.75;
+      src.connect(g).connect(p).connect(this.ghostBus);
+      const pos = info.voiced[Math.floor(Math.random() * info.voiced.length)];
+      src.start(t, Math.max(0, pos - 0.04));
+      src.stop(t + d + 0.05);
+      this.ghostNext = t + d * 0.42;
+    }
+  }
+
+  /** A chapter title lands: a long low boom, made from the voice of the cat the chapter is about to show. */
+  boom(id: string) {
+    const ctx = this.ctx;
+    if (!this.on || !ctx || !this.master || !this.cineIn) return;
+    const buf = this.buffers.get(id);
+    if (!buf) return;
+    const now = ctx.currentTime;
+    if (now - (this.boomed.get(id) ?? -1e9) < 40) return;
+    this.boomed.set(id, now);
+    const onset = this.info.get(id)?.onset ?? 0;
+    const t = now + 0.03;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = 0.45;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 190;
+    lp.Q.value = 0.7;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(1.7, t + 0.06);
+    this.hush(t, 1.6, 0.5);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + 2.6);
+    src.connect(lp).connect(g);
+    g.connect(this.master);
+    g.connect(this.cineIn);
+    src.start(t, onset);
+    src.stop(t + 2.7);
+  }
+
+  /** the audio clock (seconds); the walk times everything on it, so a pause stops the walk too */
+  get now() {
+    return this.ctx?.currentTime ?? 0;
+  }
+
+  /** Walk mode: the ambient beat takes the music bed's place, and gives it back after. */
+  walkMode(on: boolean) {
+    const ctx = this.ctx;
+    if (!ctx || on === this.walking) return;
+    this.walking = on;
+    this.ambScale = on ? 0.7 : 1;
+    const now = ctx.currentTime;
+    if (on) {
+      if (!this.beats) this.buildBeats();
+      this.beats?.play().catch(() => {});
+      this.beatsGain?.gain.cancelScheduledValues(now);
+      this.beatsGain?.gain.setTargetAtTime(BEATS, now, 1.2);
+      this.musicGain?.gain.cancelScheduledValues(now);
+      this.musicGain?.gain.setTargetAtTime(0, now, 0.8);
+      window.setTimeout(() => {
+        if (this.walking) this.music?.pause();
+      }, 4000);
+    } else {
+      this.beatsGain?.gain.cancelScheduledValues(now);
+      this.beatsGain?.gain.setTargetAtTime(0, now, 1.4);
+      window.setTimeout(() => {
+        if (!this.walking) this.beats?.pause();
+      }, 6500);
+      if (this.on && this.music) {
+        this.music.play().catch(() => {});
+        this.musicGain?.gain.cancelScheduledValues(now);
+        this.musicGain?.gain.setTargetAtTime(MUSIC, now + 1.5, 1.6);
+      }
+    }
+  }
+
+  private buildBeats() {
+    const ctx = this.ctx;
+    if (!ctx || !this.master) return;
+    try {
+      const el = new Audio();
+      el.src = `/sound/walk/beats.${this.ext}`;
+      el.loop = true;
+      el.preload = "auto";
+      const src = ctx.createMediaElementSource(el);
+      // a wide dip in the speech band, opened while Vismay talks, so the beat keeps its low end
+      const dip = ctx.createBiquadFilter();
+      dip.type = "peaking";
+      dip.frequency.value = 1500;
+      dip.Q.value = 0.45;
+      dip.gain.value = 0;
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      src.connect(dip).connect(g).connect(this.master);
+      this.beats = el;
+      this.beatsGain = g;
+      this.beatsDip = dip;
+    } catch {
+      this.beats = null;
+    }
+  }
+
+  /** Fetch and decode one line of the narration (kept for a while; the browser caches the file). */
+  line(id: string): Promise<AudioBuffer | null> {
+    const ctx = this.ctx;
+    if (!ctx) return Promise.resolve(null);
+    let p = this.lines.get(id);
+    if (!p) {
+      p = fetch(`/sound/walk/${id}.${this.ext}`)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
+        .then((b) => ctx.decodeAudioData(b))
+        .catch(() => null);
+      this.lines.set(id, p);
+      if (this.lines.size > 8) {
+        const first = this.lines.keys().next().value;
+        if (first !== undefined && first !== id) this.lines.delete(first);
+      }
+    }
+    return p;
+  }
+
+  /** Say a line now, over the beat, which dips in the speech band underneath it. */
+  speak(buf: AudioBuffer): Spoken | null {
+    const ctx = this.ctx;
+    if (!ctx || !this.voiceBus) return null;
+    this.spoken?.stop();
+    const t = ctx.currentTime + 0.06;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const g = ctx.createGain();
+    g.gain.value = 1;
+    src.connect(g).connect(this.voiceBus);
+    src.start(t);
+    const end = t + buf.duration;
+    const dip = this.beatsDip?.gain;
+    if (dip) {
+      dip.cancelScheduledValues(t - 0.05);
+      dip.setTargetAtTime(BEATS_DIP, t - 0.2, 0.12);
+      dip.setTargetAtTime(0, end + 0.15, 0.5);
+    }
+    const spoken: Spoken = {
+      start: t,
+      end,
+      stop: () => {
+        const n = ctx.currentTime;
+        g.gain.cancelScheduledValues(n);
+        g.gain.setTargetAtTime(0, n, 0.08);
+        try {
+          src.stop(n + 0.4);
+        } catch {
+          /* already stopped */
+        }
+        if (dip) {
+          dip.cancelScheduledValues(n);
+          dip.setTargetAtTime(0, n, 0.3);
+        }
+        if (this.spoken === spoken) this.spoken = null;
+      },
+    };
+    this.spoken = spoken;
+    return spoken;
+  }
+
+  /** The walk's pause: everything holds where it is, voice, beat and world, until it carries on. */
+  hold(on: boolean) {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    if (on) {
+      ctx.suspend().catch(() => {});
+      this.beats?.pause();
+    } else {
+      ctx.resume().catch(() => {});
+      if (this.walking) this.beats?.play().catch(() => {});
+    }
   }
 
   /**
@@ -338,6 +946,57 @@ export class Ambience {
     this.meter = meter;
     this.meterData = new Float32Array(meter.fftSize);
 
+    // the big space for the crossings between cats: long and dark, a valley rather than a room (wet only)
+    const cineIn = ctx.createGain();
+    const cineTone = ctx.createBiquadFilter();
+    cineTone.type = "lowpass";
+    cineTone.frequency.value = 3200;
+    const cineRev = ctx.createConvolver();
+    cineRev.buffer = impulse(ctx, 5.2, 2.2);
+    const cineWet = ctx.createGain();
+    cineWet.gain.value = 0.8;
+    cineIn.connect(cineTone).connect(cineRev).connect(cineWet).connect(master);
+    this.cineIn = cineIn;
+    const sendCine = ctx.createGain();
+    sendCine.gain.value = 0.14;
+    sendCine.connect(cineIn);
+    this.sendCine = sendCine;
+    // echoes: a darkening repeat across the valley, into the same space
+    const echoIn = ctx.createGain();
+    const dl = ctx.createDelay(2);
+    dl.delayTime.value = 0.43;
+    const dlTone = ctx.createBiquadFilter();
+    dlTone.type = "lowpass";
+    dlTone.frequency.value = 1800;
+    const fb = ctx.createGain();
+    fb.gain.value = 0.38;
+    echoIn.connect(dl);
+    dl.connect(dlTone).connect(fb).connect(dl);
+    const tap = ctx.createGain();
+    tap.gain.value = 0.65;
+    dlTone.connect(tap);
+    tap.connect(master);
+    tap.connect(cineIn);
+    this.echoIn = echoIn;
+    // ghost voices: grains of the next cat, filtered, mostly reverb
+    const ghostBus = ctx.createGain();
+    ghostBus.gain.value = 0;
+    const ghostTone = ctx.createBiquadFilter();
+    ghostTone.type = "lowpass";
+    ghostTone.frequency.value = 1100;
+    ghostBus.connect(ghostTone);
+    ghostTone.connect(cineIn);
+    const ghostDry = ctx.createGain();
+    ghostDry.gain.value = 0.35;
+    ghostTone.connect(ghostDry).connect(master);
+    this.ghostBus = ghostBus;
+    this.ghostTone = ghostTone;
+    // the narration: close and dry
+    const voiceBus = ctx.createGain();
+    voiceBus.gain.value = 1;
+    voiceBus.connect(master);
+    this.voiceBus = voiceBus;
+
     // music: streamed from a media element so nothing waits for 7 MB to decode
     try {
       const el = new Audio();
@@ -369,10 +1028,14 @@ export class Ambience {
       s.start(0, Math.random() * buf.duration);
       return s;
     };
+    const ambBus = ctx.createGain();
+    ambBus.gain.value = AMB;
+    ambBus.connect(master);
+    this.ambBus = ambBus;
     const layer = (name: string, input: AudioNode) => {
       const g = ctx.createGain();
       g.gain.value = 0;
-      input.connect(g).connect(master);
+      input.connect(g).connect(ambBus);
       this.layers[name] = { gain: g, level: 0 };
     };
 
@@ -524,13 +1187,16 @@ export class Ambience {
     L.purr = win * 0.9;
 
     const t = this.ctx.currentTime;
-    const set = (name: string, v: number) => {
+    const set = (name: string, level: number) => {
       const l = this.layers[name];
       if (!l || l.gain === this.master) return;
+      const v = level * this.ambScale;
       if (Math.abs(l.level - v) < 0.005) return;
       l.level = v;
       l.gain.gain.setTargetAtTime(v, t, 0.6);
     };
+    if (this.arrival && t > this.arrival.end) this.arrival = null;
+    this.ghostTick();
     set("wind", Math.min(1, L.wind) * 0.9);
     set("rain", L.rain * 0.4);
     set("cicada", L.cicada * 0.08);
@@ -569,7 +1235,7 @@ export class Ambience {
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(peak, t + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    g.connect(this.master as GainNode);
+    g.connect(this.ambBus ?? (this.master as GainNode));
     return g;
   }
 
@@ -593,7 +1259,7 @@ export class Ambience {
       o.start(s);
       o.stop(s + 0.1);
     }
-    pan.connect(this.master as GainNode);
+    pan.connect(this.ambBus ?? (this.master as GainNode));
   }
 
   private drip(t: number) {

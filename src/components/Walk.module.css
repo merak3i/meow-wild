@@ -1,0 +1,305 @@
+/* ---- the way in, on the opening screen ---- */
+.start {
+  margin-top: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 22px 10px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(242, 182, 109, 0.5);
+  background: rgba(8, 11, 18, 0.3);
+  color: var(--ink-light);
+  text-align: left;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: border-color 0.3s ease, background 0.3s ease, transform 0.3s var(--ease);
+  animation: walkRise 1.5s var(--ease) 0.44s both;
+}
+.start:hover {
+  border-color: var(--amber);
+  background: rgba(8, 11, 18, 0.45);
+  transform: translate3d(0, -1px, 0);
+}
+.play {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 0 0 rgba(242, 182, 109, 0.5);
+  animation: walkPulse 2.6s ease-in-out 2s infinite;
+}
+.play::after {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 10px;
+  border-style: solid;
+  border-width: 7px 0 7px 11px;
+  border-color: transparent transparent transparent #1a1208;
+}
+.startText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.startLabel {
+  font-family: var(--serif);
+  font-size: 1.12rem;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+.startMeta {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.62;
+}
+
+/* ---- the launcher, next to the sound switch, once you are past the opening ---- */
+.launch {
+  position: fixed;
+  left: 158px;
+  bottom: 22px;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(242, 182, 109, 0.4);
+  background: rgba(8, 11, 18, 0.32);
+  color: var(--ink-light);
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  pointer-events: none;
+  transition: opacity 0.45s ease, transform 0.45s var(--ease), border-color 0.25s ease;
+}
+.launch svg {
+  color: var(--amber);
+}
+.launchOn {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.launch:hover {
+  border-color: var(--amber);
+}
+
+/* ---- the player ---- */
+.dock {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  z-index: 21;
+  width: min(700px, calc(100vw - 380px));
+  transform: translate3d(-50%, 0, 0);
+  padding: 16px 18px 12px 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(7, 10, 17, 0.56);
+  color: var(--ink-light);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  backdrop-filter: blur(12px) saturate(1.15);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+  animation: walkRise 0.7s var(--ease) both;
+}
+.progress {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  background: var(--amber);
+  transition: transform 1.2s var(--ease);
+}
+.caption {
+  margin: 0;
+  min-height: 3.1em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  opacity: 0.35;
+  transition: opacity 0.5s ease;
+}
+.shown {
+  opacity: 1;
+}
+.who {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.line {
+  font-family: var(--serif);
+  font-size: clamp(1.02rem, 1.45vw, 1.24rem);
+  line-height: 1.42;
+  text-wrap: pretty;
+}
+.controls {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn,
+.wide {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-light);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.btn {
+  width: 34px;
+  padding: 0;
+}
+.wide {
+  gap: 9px;
+  padding: 0 16px 0 13px;
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.wide svg {
+  color: var(--amber);
+}
+.btn:hover,
+.wide:hover {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.08);
+}
+.main {
+  width: 40px;
+  height: 40px;
+  border-color: rgba(242, 182, 109, 0.6);
+  color: var(--amber);
+}
+.count {
+  margin-left: 6px;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+.close {
+  margin-left: auto;
+}
+
+@keyframes walkRise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.dock {
+  animation-name: walkRiseDock;
+}
+@keyframes walkRiseDock {
+  from {
+    opacity: 0;
+    transform: translate3d(-50%, 18px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+@keyframes walkPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(242, 182, 109, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 9px rgba(242, 182, 109, 0);
+  }
+}
+
+@media (max-width: 1100px) {
+  .dock {
+    width: min(640px, calc(100vw - 340px));
+  }
+}
+@media (max-width: 900px) {
+  .dock {
+    left: 14px;
+    right: 14px;
+    bottom: 64px;
+    width: auto;
+    transform: none;
+    animation-name: walkRise;
+  }
+}
+@media (max-width: 760px) {
+  .launch {
+    left: 64px;
+    bottom: 14px;
+    padding: 9px 12px;
+  }
+  .start {
+    margin-top: 26px;
+    gap: 12px;
+    padding: 9px 18px 9px 9px;
+  }
+  .startLabel {
+    font-size: 1.02rem;
+  }
+  .line {
+    font-size: 1rem;
+  }
+  .caption {
+    min-height: 4.3em;
+  }
+}
+@media (max-height: 520px) {
+  .dock {
+    bottom: 10px;
+    padding: 10px 14px 8px 16px;
+  }
+  .caption {
+    min-height: 2.8em;
+  }
+  .who {
+    display: none;
+  }
+  .controls {
+    margin-top: 6px;
+  }
+}
+
+:global(html:not(.js)) .start,
+:global(html:not(.js)) .launch,
+:global(html:not(.js)) .dock {
+  display: none;
+}

@@ -1,4 +1,5 @@
 import { CATS, SUMMIT_M } from "@/lib/cats";
+import { WalkStart } from "./Walk";
 import styles from "./Hero.module.css";
 
 /**
@@ -25,6 +26,7 @@ export default function Hero() {
             world, and walk all the way down to the sea, meeting all {CATS.length} of them at the altitude each
             one calls home.
           </p>
+          <WalkStart />
           <div className={styles.cue} aria-hidden="true">
             <span>Scroll to descend</span>
             <i />
