@@ -1,9 +1,47 @@
 .root {
   position: relative;
-  min-height: 100vh;
 }
 
-.scroll {
+/* flat sky: the no-WebGL fallback, and what shows before the first frame */
+.sky {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(to bottom, var(--sky-top, #0b1226) 0%, var(--sky-bottom, #2c3360) 100%);
+  transition: background 0.6s linear;
+}
+
+.canvas {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100lvh;
+  z-index: 1;
+  display: block;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+.canvas.on {
+  opacity: 1;
+}
+
+.main {
   position: relative;
-  z-index: 2;
+  z-index: 3;
+}
+
+/* living photographs: above the page, below the instrument */
+.live {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100lvh;
+  z-index: 4;
+  display: block;
+  pointer-events: none;
 }

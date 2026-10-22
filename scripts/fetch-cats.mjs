@@ -59,7 +59,7 @@ function fileTitleFromUrl(url) {
   const p = decodeURIComponent(new URL(url).pathname);
   const segs = p.split("/");
   // thumb URLs look like /commons/thumb/a/ab/Name.jpg/3840px-Name.jpg
-  // — the real file name is the second-to-last segment, not the rendered thumb.
+  // so the real file name is the second-to-last segment, not the rendered thumb.
   const name = p.includes("/thumb/") ? segs[segs.length - 2] : segs[segs.length - 1];
   return "File:" + name;
 }
@@ -172,13 +172,15 @@ async function main() {
   }
 
   const md =
-    `# Image Credits — meow.wild\n\n` +
+    `# meow.wild image credits\n\n` +
     `Every species photo is Creative Commons or public domain, sourced from Wikimedia / Wikipedia.\n` +
     `Attribution is provided per the license terms. If you are a rights holder and want a change, contact the maintainer.\n\n` +
+    `On the page each photo is a cutout: the background was removed and the edges retouched (scripts/cutouts).\n` +
+    `Edits of share-alike photos are shared under the same licence.\n\n` +
     credits
       .map(
         (c) =>
-          `### ${c.name} — *${c.latin}*\n` +
+          `### ${c.name}, *${c.latin}*\n` +
           `- File: \`public/cats/${c.file}\`\n` +
           `- Source: ${c.source}\n` +
           `- Author: ${c.author}\n` +

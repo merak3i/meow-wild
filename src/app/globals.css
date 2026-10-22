@@ -1,26 +1,16 @@
 :root {
-  /* dynamic atmosphere — written by the scroll engine */
-  --mw-sky-top: #e9f1f6;
-  --mw-sky-bottom: #c2d6e3;
-  --mw-fog: rgba(244, 250, 255, 0.55);
-  --mw-light: #cfe0ee;
-  --mw-ridge: #aebfce;
-  --mw-scroll: 0;
-  --mw-progress: 0;
-  --mw-vel: 0;
-
-  /* ink + surfaces */
-  --ink: #1d2421;
-  --ink-soft: #41514a;
-  --ink-faint: #6c7a72;
-  --card: rgba(253, 251, 246, 0.82);
-  --card-border: rgba(255, 255, 255, 0.55);
-  --card-shadow: 0 22px 60px -28px rgba(18, 30, 24, 0.55);
-  --hud: rgba(18, 26, 22, 0.34);
-  --content: 1180px;
-
-  --font-display: var(--font-space-grotesk), system-ui, -apple-system, sans-serif;
-  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --ink-light: #f6f2ea;
+  --ink-light-2: rgba(246, 242, 234, 0.76);
+  --ink-light-3: rgba(246, 242, 234, 0.52);
+  --ink-dark: #121518;
+  --ink-dark-2: rgba(18, 21, 24, 0.74);
+  --amber: #f2b66d;
+  --amber-dark: #8f531a;
+  --content: 1260px;
+  --serif: var(--font-serif), "Iowan Old Style", Georgia, serif;
+  --sans: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 *,
@@ -37,10 +27,10 @@ body {
 
 html {
   -webkit-text-size-adjust: 100%;
-  scroll-behavior: smooth;
+  background: #0b1226;
 }
 
-/* Lenis smooth-scroll */
+/* Lenis smooth scroll */
 html.lenis,
 html.lenis body {
   height: auto;
@@ -56,21 +46,22 @@ html.lenis body {
 }
 
 body {
-  font-family: var(--font-space-grotesk), system-ui, -apple-system, sans-serif;
-  color: var(--ink);
-  background: #0c130f;
+  font-family: var(--sans);
+  color: var(--ink-light);
+  background: #0b1226;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 h1,
 h2,
 h3 {
-  font-family: var(--font-display);
-  font-weight: 500;
-  line-height: 1.04;
+  font-family: var(--serif);
+  font-weight: 400;
+  line-height: 1.02;
   margin: 0;
   letter-spacing: -0.01em;
 }
@@ -84,93 +75,44 @@ a {
 }
 
 ::selection {
-  background: rgba(217, 138, 61, 0.28);
+  background: rgba(242, 182, 109, 0.36);
 }
 
 :focus-visible {
-  outline: 2px solid #d98a3d;
+  outline: 2px solid var(--amber);
   outline-offset: 3px;
   border-radius: 4px;
 }
 
 button {
   font: inherit;
-  cursor: pointer;
+  color: inherit;
 }
 
-@keyframes mw-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
+/* a paw for a cursor: cream with a dark rim so it reads on snow and at night; pink beans when it can press something.
+   Each rule falls back to the plain 1x image where image-set() is not supported for cursors. */
+html {
+  cursor: url("/cursor/paw.png") 7 7, auto;
+  cursor: -webkit-image-set(url("/cursor/paw.png") 1x, url("/cursor/paw@2x.png") 2x) 7 7, auto;
+  cursor: image-set(url("/cursor/paw.png") 1x, url("/cursor/paw@2x.png") 2x) 7 7, auto;
 }
-
-@keyframes mw-blink {
-  0%,
-  92%,
-  100% {
-    transform: scaleY(1);
-  }
-  95% {
-    transform: scaleY(0.08);
-  }
-}
-
-@keyframes mw-rise {
-  from {
-    opacity: 0;
-    transform: translateY(26px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes mw-cue {
-  0%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.5;
-  }
-  50% {
-    transform: translateY(9px);
-    opacity: 1;
-  }
-}
-
-@keyframes mw-tail {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-  50% {
-    transform: rotate(-4deg);
-  }
-}
-
-@keyframes mw-shimmer {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 0.9;
-  }
+a,
+button,
+summary,
+label,
+[role="button"] {
+  cursor: url("/cursor/paw-tap.png") 7 7, pointer;
+  cursor: -webkit-image-set(url("/cursor/paw-tap.png") 1x, url("/cursor/paw-tap@2x.png") 2x) 7 7, pointer;
+  cursor: image-set(url("/cursor/paw-tap.png") 1x, url("/cursor/paw-tap@2x.png") 2x) 7 7, pointer;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
   *,
   *::before,
   *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

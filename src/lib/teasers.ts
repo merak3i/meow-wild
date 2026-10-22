@@ -5,7 +5,7 @@ export interface Teaser {
   line: string;
 }
 
-/** Cliffhangers in the gaps — each teases the cat you're about to meet. */
+/** Cliffhangers in the gaps: each teases the cat you're about to meet. */
 export const TEASERS: Teaser[] = [
   {
     afterCatId: "hero",
@@ -15,7 +15,7 @@ export const TEASERS: Teaser[] = [
   {
     afterCatId: "pallass-cat",
     kicker: "Still 4,000 m up",
-    line: "One cat lives at every height of this mountain — snow to sea. It's next.",
+    line: "One cat lives at every height of this mountain, snow to sea. It's next.",
   },
   {
     afterCatId: "caracal",
@@ -25,7 +25,7 @@ export const TEASERS: Teaser[] = [
   {
     afterCatId: "serval",
     kicker: "300 m below you",
-    line: "Down here stalks the largest cat that has ever lived.",
+    line: "Down here stalks the largest cat alive.",
   },
   {
     afterCatId: "jaguar",
@@ -35,7 +35,7 @@ export const TEASERS: Teaser[] = [
   {
     afterCatId: "rusty-spotted-cat",
     kicker: "Almost at sea level",
-    line: "One of the last cats down here never drinks water at all.",
+    line: "One of the last cats down here can live without ever drinking water.",
   },
 ];
 

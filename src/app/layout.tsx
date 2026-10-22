@@ -1,54 +1,65 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-space-grotesk",
+/* Self-hosted (SIL OFL 1.1, see fonts/OFL.txt): no build-time call to Google Fonts. */
+const serif = localFont({
+  src: [
+    { path: "./fonts/InstrumentSerif-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/InstrumentSerif-Italic.woff2", weight: "400", style: "italic" },
+  ],
+  variable: "--font-serif",
   display: "swap",
 });
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
+const sans = localFont({
+  src: "./fonts/InstrumentSans-Variable.woff2",
+  weight: "400 700",
+  variable: "--font-sans",
   display: "swap",
 });
+
+const mono = localFont({
+  src: "./fonts/JetBrainsMono-Variable.woff2",
+  weight: "100 800",
+  variable: "--font-mono",
+  display: "swap",
+});
+
+const TITLE = "meow.wild · How high does a cat live?";
+const DESCRIPTION =
+  "Scroll down from the frozen roof of the world to the sea, meeting 18 wild cats at the altitude each one calls home. One day, one mountain, every landscape drawn live as you descend.";
+const SHARE = "A scroll down the mountain, from the snow leopard at 5,000 m to the cat asleep in your lap.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://meow-wild.vercel.app"),
-  title: "meow.wild — how high do cats live?",
-  description:
-    "Scroll down from the frozen roof of the world to the valley floor, meeting wild cats at the exact altitude they call home. A descent through every cat, by elevation.",
-  keywords: [
-    "wild cats",
-    "big cats",
-    "small cats",
-    "snow leopard",
-    "altitude",
-    "nature",
-    "scroll story",
-  ],
-  authors: [{ name: "meow.wild" }],
+  title: TITLE,
+  description: DESCRIPTION,
+  keywords: ["wild cats", "big cats", "small cats", "snow leopard", "altitude", "nature", "scroll story", "Meow Creative Haus"],
+  authors: [{ name: "Meow Creative Haus", url: "https://meowcreativehaus.xyz" }],
+  creator: "Meow Creative Haus",
   openGraph: {
-    title: "meow.wild — how high do cats live?",
-    description:
-      "A scroll down the mountain, from the snow leopard at 5,000 m to the cat asleep in your lap.",
+    title: TITLE,
+    description: SHARE,
     type: "website",
     siteName: "meow.wild",
   },
   twitter: {
     card: "summary_large_image",
-    title: "meow.wild — how high do cats live?",
-    description:
-      "A scroll down the mountain, from the snow leopard at 5,000 m to the cat asleep in your lap.",
+    title: TITLE,
+    description: SHARE,
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#c2d6e3",
+  themeColor: "#0b1226",
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
+
+/* Runs before first paint: flags JS, reduced motion and WebGL2 so CSS can stage the reveal without a flash. */
+const BOOT = `(function(){var d=document.documentElement;d.classList.add('js');try{if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)d.classList.add('rm');var c=document.createElement('canvas');if(c.getContext('webgl2'))d.classList.add('gl')}catch(e){}})()`;
 
 export default function RootLayout({
   children,
@@ -56,7 +67,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable}`}>
+    <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: BOOT }} />
+      </head>
       <body>{children}</body>
     </html>
   );
