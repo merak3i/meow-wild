@@ -12,15 +12,18 @@
   height: 100vh;
   height: 100svh;
   overflow: hidden;
+  /* words on top, the sill takes what height is left: on a short screen the cat shrinks instead of climbing into the text */
+  display: flex;
+  flex-direction: column;
   color: var(--ink-light);
   text-shadow: 0 2px 26px rgba(3, 4, 10, 0.6);
 }
 
 .head {
-  position: absolute;
-  top: 13vh;
-  left: 0;
-  right: 0;
+  position: relative;
+  flex: none;
+  margin-top: 13vh;
+  margin-top: 13svh;
   padding: 0 28px;
   text-align: center;
 }
@@ -34,15 +37,14 @@
 .title {
   margin: 16px auto 0;
   max-width: 900px;
-  font-size: clamp(2.2rem, 5.2vw, 4.4rem);
+  font-size: clamp(2.2rem, min(5.2vw, 9.5svh), 4.4rem);
   line-height: 1.04;
   letter-spacing: -0.02em;
 }
 .foot {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 44vh;
+  position: relative;
+  flex: none;
+  margin-top: clamp(18px, 8svh, 96px);
   padding: 0 28px;
   text-align: center;
 }
@@ -60,15 +62,22 @@
   line-height: 1.6;
   color: var(--ink-light-2);
 }
+/* the cat's feet stay on the painted sill, 5.4% up from the bottom (see windowFrame in shaders.ts) */
 .sill {
-  position: absolute;
-  left: 50%;
-  bottom: 5.4%;
-  transform: translateX(-50%);
-  width: min(62vw, 560px);
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  container-type: size;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 5.4vh;
+  padding-bottom: 5.4svh;
 }
 .photo {
-  width: 100%;
+  position: relative;
+  flex: none;
+  width: min(62vw, 560px, 100cqh * var(--ar));
   aspect-ratio: var(--ar);
 }
 .photo img {
@@ -80,6 +89,22 @@
 }
 :global(html.pt) .photo img {
   opacity: var(--photo, 0);
+}
+:global(html.lp) .photo[data-live] img {
+  opacity: 0 !important;
+}
+/* no WebGL, no painted window: give the cat a plain wooden sill */
+:global(html:not(.gl)) .photo::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: -18%;
+  right: -18%;
+  bottom: -1.5vh;
+  height: 2.8vh;
+  border-radius: 3px;
+  background: linear-gradient(to bottom, #5a3920, #2a1a0f);
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.6);
 }
 
 :global(html.js:not(.rm)) .head {
@@ -142,6 +167,7 @@
   color: #17140f;
   font-weight: 600;
   font-size: 0.95rem;
+  text-decoration: none;
   box-shadow: 0 12px 36px -14px rgba(242, 182, 109, 0.7);
   transition: transform 0.25s var(--ease), box-shadow 0.25s ease;
 }
@@ -236,13 +262,12 @@
 
 @media (max-width: 760px) {
   .head {
-    top: 10vh;
+    margin-top: 17svh;
   }
-  .foot {
-    top: 40vh;
+  .title {
+    font-size: clamp(1.9rem, min(8.4vw, 6svh), 2.6rem);
   }
-  .sill {
-    width: min(82vw, 440px);
-    bottom: 5.4%;
+  .photo {
+    width: min(82vw, 440px, 100cqh * var(--ar));
   }
 }

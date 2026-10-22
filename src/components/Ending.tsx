@@ -3,6 +3,7 @@ import Image from "next/image";
 import { ALL_CATS, HOUSE_CAT } from "@/lib/cats";
 import { CAT_IMAGES } from "@/lib/catImages";
 import { deriveStats } from "@/lib/engine";
+import { SOUND_CREDITS } from "@/lib/sounds";
 import DescentChart from "./DescentChart";
 import ClimbButton from "./ClimbButton";
 import styles from "./Ending.module.css";
@@ -14,6 +15,7 @@ import styles from "./Ending.module.css";
 export default function Ending() {
   const stats = deriveStats();
   const img = CAT_IMAGES[HOUSE_CAT.id];
+  const nameOf = new Map(ALL_CATS.map((c) => [c.id, c.name]));
 
   return (
     <section className={styles.ending} aria-labelledby="ending-title">
@@ -94,6 +96,39 @@ export default function Ending() {
           <p>
             Photographs from Wikimedia Commons, with their backgrounds removed for this page. The landscapes are not
             photographs: they are drawn live in your browser, one world per cat, as you scroll.
+          </p>
+        </details>
+
+        <details className={styles.credits}>
+          <summary>Sound credits</summary>
+          <ul>
+            {SOUND_CREDITS.map((s) => (
+              <li key={s.id}>
+                <span className={styles.cn}>{s.id === "music" ? "Music" : nameOf.get(s.id) ?? s.id}</span>
+                <span>
+                  {s.what}
+                  {", "}
+                  <a href={s.source} target="_blank" rel="noopener noreferrer">
+                    {s.author}
+                  </a>
+                  {`, ${s.via}, `}
+                  {s.licenseUrl ? (
+                    <a href={s.licenseUrl} target="_blank" rel="noopener noreferrer license">
+                      {s.license}
+                    </a>
+                  ) : (
+                    s.license
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p>
+            Every recording was trimmed, cleaned and levelled for this page, and the leopard&apos;s sawing call is
+            built from a single recorded cough. Edits of share-alike recordings are shared under the same licence.
+            The Andean cat, the black-footed cat and the rusty-spotted cat have no recording free to use, so they
+            stay silent. Wind, rain, insects, birds, water and frogs are not recordings: your browser synthesises
+            them, following the same landscape you see.
           </p>
         </details>
 

@@ -14,6 +14,10 @@ import {
   packParams,
 } from "@/lib/world/presets";
 import { WorldRenderer, type CatDraw } from "@/lib/world/renderer";
+import { LivingLayer, type LiveCat } from "@/lib/world/living";
+import { StoryLayer } from "@/lib/world/story/layer";
+import { catLight, type CatLight } from "@/lib/world/light";
+import { RIGS, type Rig } from "@/lib/rigs";
 import { Timeline, type WorldSample } from "@/lib/world/timeline";
 import { airShare, clamp, clockAt, formatMeters, lerp, lightLabel, smooth, sunElevation } from "@/lib/format";
 import { mixHex } from "@/lib/color";
@@ -41,6 +45,13 @@ interface StationRef {
   last: number;
   built: boolean;
   listening: boolean;
+  live: boolean;
+  liveListening: boolean;
+  /** when the cat came into full view (ms, 0: not in view), and whether it has called this visit */
+  seen: number;
+  called: boolean;
+  /** the text block beside the cat, page coordinates: left, top, width, height */
+  text: [number, number, number, number] | null;
 }
 
 interface PinRef {
@@ -53,11 +64,16 @@ interface PinRef {
 }
 
 const WEATHER = [25, 26, 28, 29]; // snow, rain, firefly, dust
+/** a cat without a hand-placed rig still breathes and takes the light */
+const DEFAULT_RIG: Rig = { breath: [0.5, 0.55, 0.3, 0.22], breathAmp: [0.004, 0.01], breathRate: 0.25 };
 const INDEX_BY_ID = new Map(CATS.map((c, i) => [c.id, i + 1]));
+/** the world a cat lives in (the house cat's is the ending) */
+const worldOf = (id: string) => (id === "domestic-cat" ? "ending" : id);
 
 export default function Experience() {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const liveRef = useRef<HTMLCanvasElement>(null);
   const skyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -82,6 +98,37 @@ export default function Experience() {
     const particles = !!renderer && !reduced;
     html.classList.toggle("pt", particles);
 
+    // living photographs on their own layer above the page
+    let living: LivingLayer | null = null;
+    const liveCanvas = liveRef.current;
+    if (renderer && liveCanvas && new URLSearchParams(location.search).get("live") !== "0") {
+      try {
+        living = new LivingLayer(liveCanvas);
+        living.boost = Number(new URLSearchParams(location.search).get("rig")) || 1;
+        html.classList.add("lp");
+      } catch (err) {
+        console.warn("[meow.wild] living photographs unavailable", err);
+        living = null;
+      }
+    }
+    // small lives in every landscape: prey, companions, and people watching from far off
+    const storyParam = new URLSearchParams(location.search).get("story");
+    const story = renderer && storyParam !== "0" ? new StoryLayer() : null;
+    const storyDebug = storyParam === "lines" || storyParam === "sheet" ? storyParam : null;
+    const storyCats = new Map<string, [number, number, number, number]>();
+    const storyText = new Map<string, [number, number, number, number]>();
+    const light: CatLight = catLight(new Float32Array(PARAM_COUNT), 1);
+    const liveCats: LiveCat[] = [];
+    let pointer: [number, number] | null = null;
+    const onPointer = (e: PointerEvent) => {
+      if (e.pointerType === "mouse" || e.pointerType === "pen") pointer = [e.clientX, e.clientY];
+    };
+    const onPointerOut = (e: PointerEvent) => {
+      if (!e.relatedTarget) pointer = null;
+    };
+    window.addEventListener("pointermove", onPointer, { passive: true });
+    window.addEventListener("pointerout", onPointerOut, { passive: true });
+
     let lenis: Lenis | null = null;
     if (!reduced) {
       lenis = new Lenis({ autoRaf: false, duration: 1.15, wheelMultiplier: 0.9, touchMultiplier: 1.4 });
@@ -89,6 +136,8 @@ export default function Experience() {
     }
 
     const ambience = new Ambience();
+    // in development, hand the moving parts to the console for checking
+    if (process.env.NODE_ENV !== "production") (window as unknown as { __mw?: unknown }).__mw = { ambience, living, story };
     const onSound = (e: Event) => {
       const on = (e as CustomEvent<boolean>).detail;
       if (on) ambience.start();
@@ -125,6 +174,8 @@ export default function Experience() {
         const photo = el.querySelector<HTMLElement>("[data-photo]") as HTMLElement;
         const r = photo.getBoundingClientRect();
         const old = prev.get(id);
+        const dossier = el.querySelector<HTMLElement>("[data-dossier]");
+        const dr = dossier?.getBoundingClientRect();
         return {
           id,
           photo,
@@ -139,6 +190,11 @@ export default function Experience() {
           last: old?.last ?? -1,
           built: renderer?.hasCat(id) ?? false,
           listening: old?.listening ?? false,
+          live: living?.has(id) ?? false,
+          liveListening: old?.liveListening ?? false,
+          seen: old?.seen ?? 0,
+          called: old?.called ?? false,
+          text: dr ? [dr.left, dr.top + sy, dr.width, dr.height] : null,
         };
       });
       pins = Array.from(root.querySelectorAll<HTMLElement>("[data-pin]")).map((el) => {
@@ -150,6 +206,32 @@ export default function Experience() {
       timeline.measure(root);
       trackH = hud.track?.clientHeight ?? 0;
       renderer?.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio || 1);
+      if (living && liveCanvas) living.resize(liveCanvas.clientWidth, liveCanvas.clientHeight, window.devicePixelRatio || 1);
+    };
+
+    const liveFor = (st: StationRef) => {
+      if (!living || st.live || st.liveListening || !st.img) return;
+      const img = st.img;
+      st.liveListening = true;
+      const go = () => {
+        const aux = new Image();
+        aux.decoding = "async";
+        const done = (auxOk: boolean) => {
+          if (!living || !img.naturalWidth) return;
+          living.setCat(st.id, img, auxOk ? aux : null, RIGS[st.id] ?? DEFAULT_RIG, img.naturalWidth, img.naturalHeight);
+          st.live = living.has(st.id);
+          if (st.live) st.photo.dataset.live = "1";
+        };
+        aux.onload = () => done(true);
+        aux.onerror = () => done(false);
+        aux.src = `/cats/aux/${st.id}.webp`;
+      };
+      const ready = () => {
+        if (img.decode) img.decode().then(go, go);
+        else go();
+      };
+      if (img.complete && img.naturalWidth) ready();
+      else img.addEventListener("load", ready, { once: true });
     };
 
     const buildFor = (st: StationRef) => {
@@ -195,6 +277,7 @@ export default function Experience() {
           measure();
         } else {
           renderer?.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio || 1);
+          if (living && liveCanvas) living.resize(liveCanvas.clientWidth, liveCanvas.clientHeight, window.devicePixelRatio || 1);
         }
       }, 120);
     };
@@ -227,6 +310,7 @@ export default function Experience() {
       lastT = now;
       const y = window.scrollY;
       const vh = window.innerHeight;
+      const stacked = window.innerWidth <= 900;
       // jumps (rail, climb, restore) are teleports, not motion
       const v = Math.abs(y - lastY) > vh * 1.2 ? 0 : clamp((y - lastY) / vh / dt, -4, 4);
       lastY = y;
@@ -285,8 +369,17 @@ export default function Experience() {
         }
       }
 
+      // once the window scene unpins, the room scrolls up with the page
+      const endPin = pinByName.get("ending");
+      const roomShift = endPin ? clamp((y - (endPin.top + endPin.height - vh)) / vh, 0, 1.5) : 0;
+
       // ---- cats: particles in, photograph, particles out ----
       cats.length = 0;
+      liveCats.length = 0;
+      storyCats.clear();
+      storyText.clear();
+      const voice = ambience.running ? ambience.voice() : null;
+      const soundOn = ambience.running;
       for (const st of stations) {
         let top = st.top - y;
         let left = st.left;
@@ -304,11 +397,29 @@ export default function Experience() {
             st.photo.style.setProperty("--photo", "0");
             st.last = 0;
           }
+          st.seen = 0;
+          st.called = false;
           continue;
+        }
+        storyCats.set(worldOf(st.id), [left, top, st.w, st.h]);
+        if (st.text) storyText.set(worldOf(st.id), [st.text[0], st.text[1] - y, st.text[2], st.text[3]]);
+        // a cat that has been in full view for a moment calls, once per visit, panned to where it stands
+        const inView = Math.abs(o) < 0.32 && (st.last > 0.6 || !particles);
+        if (!inView) st.seen = 0;
+        else if (!st.seen) st.seen = now;
+        if (Math.abs(o) > 0.9) st.called = false;
+        if (soundOn && !st.called && st.seen && now - st.seen > 700 && st.id !== "domestic-cat") {
+          const pan = ((left + st.w / 2) / window.innerWidth) * 2 - 1;
+          if (ambience.call(st.id, pan)) st.called = true;
         }
         if (st.img && st.img.loading === "lazy" && o < 3.2) st.img.loading = "eager";
         buildFor(st);
-        if (!particles) continue;
+        liveFor(st);
+        if (!particles) {
+          // no particles: the photograph simply stands there, but it can still live and take the light
+          if (st.live && o < 1.3 && o > -1.3) liveCats.push({ id: st.id, rect: [left, top, st.w, st.h], opacity: 1, fade: st.sticky ? 0 : 1, sill: st.sticky ? 1 : 0 });
+          continue;
+        }
         let prog: number;
         let diss: number;
         if (st.progPin) {
@@ -317,8 +428,9 @@ export default function Experience() {
           prog = smooth(0.08, 0.42, pq);
           diss = 0;
         } else {
-          prog = 1 - smooth(0.12, 0.64, o);
-          diss = smooth(-0.24, -0.66, o);
+          // stacked layout (photo above the dossier) holds the cat longer as it rises
+          prog = stacked ? 1 - smooth(0.04, 0.5, o) : 1 - smooth(0.12, 0.64, o);
+          diss = stacked ? smooth(-0.46, -0.86, o) : smooth(-0.24, -0.66, o);
         }
         const photo = st.built ? smooth(0.84, 0.985, prog) * (1 - smooth(0.0, 0.22, diss)) : smooth(0.3, 0.7, prog) * (1 - smooth(0.0, 0.4, diss));
         if (Math.abs(photo - st.last) > 0.003) {
@@ -328,31 +440,81 @@ export default function Experience() {
         if (st.built && prog > 0.001 && diss < 0.999) {
           cats.push({ id: st.id, rect: [left, top, st.w, st.h], prog, diss, mode: st.mode, photo, fade: st.sticky ? 0 : 1 });
         }
+        if (st.live && photo > 0.002) {
+          liveCats.push({ id: st.id, rect: [left, top, st.w, st.h], opacity: photo, fade: st.sticky ? 0 : 1, sill: st.sticky ? 1 : 0 });
+        }
       }
 
       // ---- sound follows the world ----
       ambience.update(params, alt);
 
+      // ---- the story layer, and what each cat attends to ----
+      const drift = reduced ? 0 : y * 0.12;
+      if (story || living) catLight(params, window.innerWidth / Math.max(1, vh), light);
+      let storyFrame: ReturnType<StoryLayer["update"]> | undefined;
+      if (story) {
+        storyFrame = story.update({
+          time: (now - t0) / 1000,
+          W: window.innerWidth,
+          H: vh,
+          params,
+          alt: camAlt,
+          drift,
+          a: sample.a,
+          b: sample.b,
+          t: sample.t,
+          anchors: timeline.worldAnchors,
+          cats: storyCats,
+          texts: storyText,
+          reduced,
+          sun: light.sun,
+          calling: voice && voice.level > 0.25 ? worldOf(voice.id) : null,
+          debug: storyDebug,
+        });
+      }
+      for (const lc of liveCats) {
+        const r = story?.reactions.get(worldOf(lc.id));
+        lc.focus = r?.focus ?? null;
+        lc.alert = r?.alert ?? 0;
+        lc.voice = voice && voice.id === lc.id ? voice.level : 0;
+      }
+
       // ---- draw ----
       if (renderer) {
         frameNo++;
-        const throttle = idleFor > 3 && frameNo % 2 === 1;
+        const idle = idleFor > 3;
+        const throttle = idle && frameNo % 2 === 1;
         if (!throttle) {
+          // half-rate idle frames must not read as a slow device to the adaptive resolution
+          if (idle) renderer.resetTiming();
           const se = sunElevation(tod);
           renderer.render({
             time: reduced ? 12.5 : (now - t0) / 1000,
             alt: camAlt,
-            drift: reduced ? 0 : y * 0.12,
+            drift,
             travel: reduced ? 0 : y / vh,
             vel: reduced ? 0 : vel,
             params,
             starVis: params[42] * smooth(-1, -8, se),
             horizon: params[2],
             window: params[31],
-            sill: 0,
+            sill: roomShift,
             lamp: params[31],
             cats,
+            story: storyFrame,
           });
+          if (living) {
+            living.render({
+              time: (now - t0) / 1000,
+              dt: dt * (idle ? 2 : 1),
+              pointer,
+              vel: reduced ? 0 : vel,
+              still: reduced,
+              light,
+              idle: idleFor,
+              cats: liveCats,
+            });
+          }
           if (!shown) {
             shown = true;
             canvas.classList.add(styles.on);
@@ -390,6 +552,9 @@ export default function Experience() {
       ambience.dispose();
       lenis?.destroy();
       renderer?.dispose();
+      living?.dispose();
+      window.removeEventListener("pointermove", onPointer);
+      window.removeEventListener("pointerout", onPointerOut);
     };
   }, []);
 
@@ -397,6 +562,7 @@ export default function Experience() {
     <div ref={rootRef} className={styles.root}>
       <div ref={skyRef} className={styles.sky} aria-hidden="true" />
       <canvas ref={canvasRef} className={styles.canvas} aria-hidden="true" />
+      <canvas ref={liveRef} className={styles.live} aria-hidden="true" />
       <Instrument />
       <SoundToggle />
 

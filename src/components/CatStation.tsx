@@ -80,7 +80,7 @@ export default function CatStation({
           </figcaption>
         </figure>
 
-        <div className={styles.dossier}>
+        <div className={styles.dossier} data-dossier="">
           <p className={styles.index}>
             <b>{String(index).padStart(2, "0")}</b>
             <span>/ {total}</span>

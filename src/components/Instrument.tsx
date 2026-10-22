@@ -11,7 +11,7 @@ const TICKS = [5500, 5000, 4500, 4000, 3500, 3000, 2500, 2000, 1500, 1000, 500, 
 
 /**
  * The altimeter: a readout in the corner and a rail down the right edge with
- * every cat at its altitude. Dots are buttons that fly you to that cat.
+ * every cat at its altitude. Dots are links that fly you to that cat.
  */
 export default function Instrument() {
   const jump = (id: string) => window.dispatchEvent(new CustomEvent("mw:jump", { detail: id }));
@@ -55,18 +55,21 @@ export default function Instrument() {
           <ol className={styles.dots}>
             {CATS.map((c, i) => (
               <li key={c.id} style={{ top: pct(c.altitudeM) }}>
-                <button
-                  type="button"
+                <a
+                  href={`#cat-${c.id}`}
                   className={`${styles.dot} ${i % 2 ? styles.alt : ""}`}
                   style={{ "--c": IUCN_META[c.iucn].color } as CSSProperties}
-                  onClick={() => jump(c.id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    jump(c.id);
+                  }}
                   aria-label={`${c.name}, ${c.altitudeM.toLocaleString("en-US")} metres`}
                 >
                   <span className={styles.tip} aria-hidden="true">
                     {c.name}
                     <em>{c.altitudeM.toLocaleString("en-US")} m</em>
                   </span>
-                </button>
+                </a>
               </li>
             ))}
           </ol>

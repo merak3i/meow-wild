@@ -179,7 +179,7 @@ export const CATS: Cat[] = [
     fact: "It hauls prey heavier than itself straight up a tree trunk, lifting the whole carcass out of reach of lions and hyenas.",
     sizeClass: "big",
     tint: "#dcb46c",
-    credit: { author: "Bernard DUPONT", ...BY_SA_2, source: `${C}Leopard_(Panthera_pardus)_(52509810978).jpg` },
+    credit: { author: "Sumeet Moghe", ...BY_SA_4, source: `${C}African_leopard_male_(cropped).jpg` },
   },
   {
     id: "serval",

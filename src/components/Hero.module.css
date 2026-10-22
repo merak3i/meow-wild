@@ -166,3 +166,9 @@
 :global(html.rm) .dawn {
   display: none;
 }
+
+@media (max-width: 760px) {
+  .sticky {
+    padding: 0 44px 0 22px;
+  }
+}

@@ -15,7 +15,7 @@ export default function Hero() {
           <p className={styles.wordmark}>meow.wild</p>
           <p className={styles.eyebrow}>A descent through the world of cats</p>
           <h1 className={styles.title}>
-            <span className={styles.l1}>How high does</span>
+            <span className={styles.l1}>How high does </span>
             <span className={styles.l2}>
               a cat <em>live?</em>
             </span>

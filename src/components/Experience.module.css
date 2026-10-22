@@ -32,3 +32,16 @@
   position: relative;
   z-index: 3;
 }
+
+/* living photographs: above the page, below the instrument */
+.live {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100lvh;
+  z-index: 4;
+  display: block;
+  pointer-events: none;
+}

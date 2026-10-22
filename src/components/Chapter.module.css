@@ -80,6 +80,10 @@
   opacity: 0.94;
 }
 
+/* the shade behind the words arrives with them, not before */
+:global(html.js:not(.rm)) .inner::before {
+  opacity: var(--in);
+}
 :global(html.js:not(.rm)) .no,
 :global(html.js:not(.rm)) .range {
   opacity: calc(var(--in) * 0.85);
@@ -90,4 +94,10 @@
 :global(html.js:not(.rm)) .tagline {
   opacity: clamp(0, var(--q, 0) * 3.4 - 0.75, 0.94);
   transform: translate3d(0, calc((1 - clamp(0, var(--q, 0) * 3.4 - 0.75, 1)) * 16px), 0);
+}
+
+@media (max-width: 760px) {
+  .sticky {
+    padding: 0 44px 0 22px;
+  }
 }

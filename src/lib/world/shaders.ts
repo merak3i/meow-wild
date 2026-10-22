@@ -29,21 +29,9 @@ float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.y
 vec2 hash22(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973)); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.xx + p3.yz) * p3.zy); }
 `;
 
-export const WORLD_FS = /* glsl */ `#version 300 es
-precision highp float;
-
-uniform vec2 uRes;
-uniform float uTime;
-uniform float uAlt;
-uniform float uDrift;
-uniform float uTravel;
-uniform float uVel;
-uniform vec4 uP[11];
-
-in vec2 vUv;
-out vec4 fragColor;
-
-#define TOD uP[0].x
+/* shared GLSL: the world parameters, the card constants and the ridgeline noise,
+   used by the world pass and by the story pass (which hides figures behind nearer ridges) */
+const PARAM_DEFS = /* glsl */ `#define TOD uP[0].x
 #define HAZE uP[0].y
 #define PITCH uP[0].z
 #define WIND uP[0].w
@@ -87,22 +75,18 @@ out vec4 fragColor;
 #define TRUNKS uP[10].y
 #define STARS uP[10].z
 #define MOON uP[10].w
+`;
 
-const float CB = 1920.0;
+const CARD_CONSTS = /* glsl */ `const float CB = 1920.0;
 const float CT = 2480.0;
 const int NL = 7;
 // screen units per metre of elevation for each card (far → near)
 const float LS[7] = float[7](1.0 / 14000.0, 1.0 / 8000.0, 1.0 / 4800.0, 1.0 / 2900.0, 1.0 / 1700.0, 1.0 / 950.0, 1.0 / 420.0);
 // horizontal feature frequency of each card (cycles per screen height)
 const float KX[7] = float[7](1.15, 1.45, 1.8, 2.2, 2.7, 3.3, 4.0);
+`;
 
-float gAsp, gPix, gYh, gSe, gDay, gNight, gSunSide, gInCloud, gAbove, gBelow, gLine, gLitLow, gToward;
-vec2 gSunP;
-vec3 gSunCol, gZen, gAmb, gFog;
-
-${COMMON}
-
-float gnoise(float x) {
+const GNOISE = /* glsl */ `float gnoise(float x) {
   float i = floor(x);
   float f = fract(x);
   float g0 = hash11(i) * 2.0 - 1.0;
@@ -110,7 +94,95 @@ float gnoise(float x) {
   float u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
   return mix(g0 * f, g1 * (f - 1.0), u) * 2.0;
 }
+`;
 
+const TERRAIN = /* glsl */ `float shapeAt(float x, float jag, int oct) {
+  float fb = 0.0, rg = 0.0, a = 0.5, n = 0.0, w = 1.0;
+  for (int k = 0; k < 6; k++) {
+    if (k >= oct) break;
+    float v = gnoise(x);
+    fb += a * v;
+    float r = 1.0 - abs(v);
+    r *= r;
+    rg += a * r * w;
+    w = clamp(r * 1.5, 0.0, 1.0);
+    n += a;
+    a *= 0.5;
+    x = x * 2.03 + 7.13;
+  }
+  fb = clamp(fb / n * 0.9 + 0.5, 0.0, 1.0);
+  rg = clamp(rg / n * 1.1, 0.0, 1.0);
+  return mix(fb, rg, jag);
+}
+
+float towerAt(float x) {
+  float cw = 0.6;
+  float c = floor(x / cw);
+  float best = 0.0;
+  for (int k = -1; k <= 1; k++) {
+    float ci = c + float(k);
+    float h = hash11(ci * 1.37 + 4.1);
+    float cx = (ci + 0.25 + 0.5 * hash11(ci * 2.91)) * cw;
+    float hw = cw * (0.13 + 0.18 * hash11(ci * 5.3));
+    float d = abs(x - cx) / hw;
+    float prof = (0.45 + 0.55 * h) * (1.0 - pow(clamp(d, 0.0, 1.0), 4.0));
+    best = max(best, prof);
+  }
+  return best;
+}
+
+float duneAt(float x) {
+  float w = gnoise(x * 0.27) * 0.45;
+  float y = x * 0.55 + w;
+  float f = fract(y);
+  float prof = min(smoothstep(0.0, 0.78, f), 1.0 - smoothstep(0.78, 1.0, f));
+  float amp = 0.5 + 0.5 * hash11(floor(y) * 1.7 + 3.0);
+  return prof * amp + gnoise(x * 3.1) * 0.02;
+}
+
+float layerT(int i) { return float(i) / 6.0; }
+float layerOff(int i) { float t = layerT(i); return t < 0.5 ? mix(FAR_O, MID_O, t * 2.0) : mix(MID_O, NEAR_O, t * 2.0 - 1.0); }
+float layerAmp(int i) { float t = layerT(i); return max(t < 0.5 ? mix(FAR_A, MID_A, t * 2.0) : mix(MID_A, NEAR_A, t * 2.0 - 1.0), 0.0005); }
+float layerJ(int i) { return mix(JAG_F, JAG_N, smoothstep(0.3, 0.85, layerT(i))); }
+float layerX(int i, float px) { return (px + uDrift * LS[i]) * KX[i] + float(i) * 13.71; }
+
+float shapeFull(int i, float x, int oct) {
+  float s = shapeAt(x, layerJ(i), oct);
+  if (DUNE > 0.001) s = mix(s, duneAt(x), DUNE);
+  if (MESA > 0.001 && i <= 3) s = mix(s, smoothstep(0.5, 0.58, s) * 0.8 + s * 0.2, MESA);
+  if (TOWER > 0.001 && i >= 1 && i <= 4) s = mix(s, max(s * 0.3, towerAt(x)), TOWER);
+  return s;
+}
+
+/* crest height on screen */
+float crestY(int i, float xn, float s) {
+  return gYh + layerOff(i) + layerAmp(i) * (s - 0.5) * 2.0;
+}
+`;
+
+export const WORLD_FS = /* glsl */ `#version 300 es
+precision highp float;
+
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uAlt;
+uniform float uDrift;
+uniform float uTravel;
+uniform float uVel;
+uniform vec4 uP[11];
+
+in vec2 vUv;
+out vec4 fragColor;
+
+${PARAM_DEFS}
+${CARD_CONSTS}
+float gAsp, gPix, gYh, gSe, gDay, gNight, gSunSide, gInCloud, gAbove, gBelow, gLine, gLitLow, gToward;
+vec2 gSunP;
+vec3 gSunCol, gZen, gAmb, gFog;
+
+${COMMON}
+
+${GNOISE}
 float vnoise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = fract(p);
@@ -209,69 +281,7 @@ float litAt(float z) {
 
 /* ---------------- terrain ---------------- */
 
-float shapeAt(float x, float jag, int oct) {
-  float fb = 0.0, rg = 0.0, a = 0.5, n = 0.0, w = 1.0;
-  for (int k = 0; k < 6; k++) {
-    if (k >= oct) break;
-    float v = gnoise(x);
-    fb += a * v;
-    float r = 1.0 - abs(v);
-    r *= r;
-    rg += a * r * w;
-    w = clamp(r * 1.5, 0.0, 1.0);
-    n += a;
-    a *= 0.5;
-    x = x * 2.03 + 7.13;
-  }
-  fb = clamp(fb / n * 0.9 + 0.5, 0.0, 1.0);
-  rg = clamp(rg / n * 1.1, 0.0, 1.0);
-  return mix(fb, rg, jag);
-}
-
-float towerAt(float x) {
-  float cw = 0.6;
-  float c = floor(x / cw);
-  float best = 0.0;
-  for (int k = -1; k <= 1; k++) {
-    float ci = c + float(k);
-    float h = hash11(ci * 1.37 + 4.1);
-    float cx = (ci + 0.25 + 0.5 * hash11(ci * 2.91)) * cw;
-    float hw = cw * (0.13 + 0.18 * hash11(ci * 5.3));
-    float d = abs(x - cx) / hw;
-    float prof = (0.45 + 0.55 * h) * (1.0 - pow(clamp(d, 0.0, 1.0), 4.0));
-    best = max(best, prof);
-  }
-  return best;
-}
-
-float duneAt(float x) {
-  float w = gnoise(x * 0.27) * 0.45;
-  float y = x * 0.55 + w;
-  float f = fract(y);
-  float prof = min(smoothstep(0.0, 0.78, f), 1.0 - smoothstep(0.78, 1.0, f));
-  float amp = 0.5 + 0.5 * hash11(floor(y) * 1.7 + 3.0);
-  return prof * amp + gnoise(x * 3.1) * 0.02;
-}
-
-float layerT(int i) { return float(i) / 6.0; }
-float layerOff(int i) { float t = layerT(i); return t < 0.5 ? mix(FAR_O, MID_O, t * 2.0) : mix(MID_O, NEAR_O, t * 2.0 - 1.0); }
-float layerAmp(int i) { float t = layerT(i); return max(t < 0.5 ? mix(FAR_A, MID_A, t * 2.0) : mix(MID_A, NEAR_A, t * 2.0 - 1.0), 0.0005); }
-float layerJ(int i) { return mix(JAG_F, JAG_N, smoothstep(0.3, 0.85, layerT(i))); }
-float layerX(int i, float px) { return (px + uDrift * LS[i]) * KX[i] + float(i) * 13.71; }
-
-float shapeFull(int i, float x, int oct) {
-  float s = shapeAt(x, layerJ(i), oct);
-  if (DUNE > 0.001) s = mix(s, duneAt(x), DUNE);
-  if (MESA > 0.001 && i <= 3) s = mix(s, smoothstep(0.5, 0.58, s) * 0.8 + s * 0.2, MESA);
-  if (TOWER > 0.001 && i >= 1 && i <= 4) s = mix(s, max(s * 0.3, towerAt(x)), TOWER);
-  return s;
-}
-
-/* crest height on screen */
-float crestY(int i, float xn, float s) {
-  return gYh + layerOff(i) + layerAmp(i) * (s - 0.5) * 2.0;
-}
-
+${TERRAIN}
 float elevAt(int i, float y) { return uAlt + (y - gYh) / LS[i]; }
 
 /* ---------------- clouds ---------------- */
@@ -716,7 +726,10 @@ void main() {
       float yw = gYh + WATER_O * 420.0 * LS[hl];
       if (p.y < yw) {
         float db = yw - p.y;
-        float rip = gnoise(p.x * 30.0 / (db + 0.03) + uTime * 0.6) * 0.5 + gnoise(p.x * 80.0 / (db + 0.05) - uTime * 0.9) * 0.25;
+        // ripple frequency rises toward the shore; capped so no ripple is finer than a few pixels
+        float f1 = min(30.0 / (db + 0.03), 0.3 / gPix);
+        float f2 = min(80.0 / (db + 0.05), 0.22 / gPix);
+        float rip = gnoise(p.x * f1 + uTime * 0.6) * 0.5 + gnoise(p.x * f2 - uTime * 0.9) * 0.25;
         vec2 q = vec2(p.x + rip * 0.003, p.y + rip * db * 0.16);
         vec3 refl = reflScene(q, hl, W);
         float fres = 0.32 + 0.68 * pow(1.0 - clamp(db * 2.2, 0.0, 1.0), 3.0);
@@ -909,6 +922,8 @@ export const COMPOSITE_FS = /* glsl */ `#version 300 es
 precision highp float;
 
 uniform sampler2D uTex;
+uniform sampler2D uStory;
+uniform float uStoryOn;
 uniform vec2 uRes;
 uniform float uTime;
 uniform float uVel;
@@ -984,12 +999,25 @@ void main() {
   vec2 p = vec2((vUv.x - 0.5) * asp, vUv.y);
   float b = clamp(abs(uVel) * 0.0035, 0.0, 0.012);
   vec4 w = texture(uTex, vUv);
+  vec4 st = vec4(0.0);
+  if (uStoryOn > 0.5) st = texture(uStory, vUv);
   if (b > 0.0006) {
     w = w * 0.4 + texture(uTex, vUv + vec2(0.0, b)) * 0.3 + texture(uTex, vUv - vec2(0.0, b)) * 0.3;
+    if (uStoryOn > 0.5) st = st * 0.4 + texture(uStory, vUv + vec2(0.0, b)) * 0.3 + texture(uStory, vUv - vec2(0.0, b)) * 0.3;
   }
   vec3 c = w.rgb;
   if (uStarVis > 0.001) c += starField(p) * w.a * uStarVis;
-  if (uWindow > 0.001) c = windowFrame(p, c, asp);
+  // the story layer: figures in front of the sky and the stars, glows added on top
+  c = c * (1.0 - st.a) + st.rgb;
+  // the sky catches the top edge of every figure: a thin rim of the light above it gives a silhouette its form
+  if (st.a > 0.02) {
+    float py = 1.0 / uRes.y;
+    float above = texture(uStory, vUv + vec2(0.0, 1.6 * py)).a;
+    float rim = clamp(st.a - above, 0.0, 1.0);
+    vec3 sky = texture(uTex, vUv + vec2(0.0, 4.0 * py)).rgb;
+    c = mix(c, max(c, sky * 0.92), rim * 0.55);
+  }
+  if (uWindow > 0.001) c = windowFrame(p - vec2(0.0, uSill), c, asp);
   vec2 vq = vUv - 0.5;
   c *= 1.0 - 0.42 * dot(vq * vec2(0.9, 1.1), vq * vec2(0.9, 1.1));
   float g = hash12(gl_FragCoord.xy + fract(uTime * 7.3) * 91.7) - 0.5;
@@ -1088,4 +1116,207 @@ void main() {
   float a = m * vA;
   if (a < 0.003) discard;
   fragColor = vec4(vCol * a, a * vOpaque * 0.92);
+}`;
+
+
+/* ---------------- story: figures in the landscape ---------------- */
+
+/*
+ * Every figure is a handful of signed-distance primitives (ellipses, tapered
+ * capsules, triangles, rings, glows), one instanced quad each. A figure takes
+ * its colour from the ground it stands on (the world pass, sampled just under
+ * its feet), so a herd on a far ridge carries that ridge's haze and light, and
+ * it is hidden wherever a nearer ridge rises in front of it.
+ */
+export const STORY_VS = /* glsl */ `#version 300 es
+precision highp float;
+layout(location = 0) in vec2 aCorner;
+layout(location = 1) in vec4 iA;
+layout(location = 2) in vec4 iB;
+layout(location = 3) in vec4 iC;
+layout(location = 4) in vec4 iD;
+layout(location = 5) in vec4 iE;
+uniform vec2 uCss;
+out vec2 vPos;
+flat out vec4 vA;
+flat out vec4 vB;
+flat out vec4 vC;
+flat out vec4 vD;
+flat out vec4 vE;
+void main() {
+  int type = int(iC.x + 0.5);
+  vec2 lo, hi;
+  if (type == 0) {
+    float r = max(iA.z, iA.w);
+    lo = iA.xy - r; hi = iA.xy + r;
+  } else if (type == 1 || type == 5) {
+    float r = max(iB.x, iB.y);
+    lo = min(iA.xy, iA.zw) - r; hi = max(iA.xy, iA.zw) + r;
+  } else if (type == 2) {
+    lo = min(min(iA.xy, iA.zw), iB.xy) - iE.w; hi = max(max(iA.xy, iA.zw), iB.xy) + iE.w;
+  } else if (type == 3) {
+    lo = iA.xy - iA.z; hi = iA.xy + iA.z;
+  } else {
+    lo = iA.xy - iA.z - iA.w; hi = iA.xy + iA.z + iA.w;
+  }
+  lo -= 2.0;
+  hi += 2.0;
+  vec2 pos = mix(lo, hi, aCorner);
+  vPos = pos;
+  vA = iA; vB = iB; vC = iC; vD = iD; vE = iE;
+  gl_Position = vec4(pos.x / uCss.x * 2.0 - 1.0, 1.0 - pos.y / uCss.y * 2.0, 0.0, 1.0);
+}`;
+
+export const STORY_FS = /* glsl */ `#version 300 es
+precision highp float;
+in vec2 vPos;
+flat in vec4 vA;
+flat in vec4 vB;
+flat in vec4 vC;
+flat in vec4 vD;
+flat in vec4 vE;
+out vec4 fragColor;
+
+uniform sampler2D uWorld;
+uniform vec2 uCss;
+uniform float uDpr;
+uniform float uAlt;
+uniform float uDrift;
+uniform vec4 uP[11];
+/** the text block beside the cat, CSS px (x, y, w, h); figures fade beneath it */
+uniform vec4 uMask;
+/** this group's opacity: scales colour only; alpha stays coverage (see the renderer's blend) */
+uniform float uGroup;
+
+${PARAM_DEFS}
+${CARD_CONSTS}
+float gYh;
+${COMMON}
+${GNOISE}
+${TERRAIN}
+
+float nearerCrest(int i, float px) {
+  float y = -1.0;
+  for (int j = 6; j > 0; j--) {
+    if (j <= i) break;
+    float xn = layerX(j, px);
+    y = max(y, crestY(j, xn, shapeFull(j, xn, j < 2 ? 5 : 6)));
+  }
+  return y;
+}
+
+float sdEllipse(vec2 p, vec2 r) {
+  float k0 = length(p / r);
+  float k1 = length(p / (r * r));
+  return k0 * (k0 - 1.0) / max(k1, 1e-5);
+}
+
+float cro(vec2 a, vec2 b) { return a.x * b.y - a.y * b.x; }
+
+float sdCapsule(vec2 p, vec2 pa, vec2 pb, float ra, float rb) {
+  p -= pa;
+  pb -= pa;
+  float h = dot(pb, pb);
+  if (h < 1e-4) return length(p) - max(ra, rb);
+  vec2 q = vec2(dot(p, vec2(pb.y, -pb.x)), dot(p, pb)) / h;
+  q.x = abs(q.x);
+  float b = ra - rb;
+  vec2 c = vec2(sqrt(max(h - b * b, 1e-6)), b);
+  float k = cro(c, q);
+  float m = dot(c, q);
+  float n = dot(q, q);
+  if (k < 0.0) return sqrt(h * n) - ra;
+  if (k > c.x) return sqrt(h * (n + 1.0 - 2.0 * q.y)) - rb;
+  return m - ra;
+}
+
+float sdTriangle(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
+  vec2 e0 = p1 - p0, e1 = p2 - p1, e2 = p0 - p2;
+  vec2 v0 = p - p0, v1 = p - p1, v2 = p - p2;
+  vec2 pq0 = v0 - e0 * clamp(dot(v0, e0) / max(dot(e0, e0), 1e-6), 0.0, 1.0);
+  vec2 pq1 = v1 - e1 * clamp(dot(v1, e1) / max(dot(e1, e1), 1e-6), 0.0, 1.0);
+  vec2 pq2 = v2 - e2 * clamp(dot(v2, e2) / max(dot(e2, e2), 1e-6), 0.0, 1.0);
+  float s = sign(e0.x * e2.y - e0.y * e2.x);
+  vec2 d = min(min(vec2(dot(pq0, pq0), s * (v0.x * e0.y - v0.y * e0.x)),
+                   vec2(dot(pq1, pq1), s * (v1.x * e1.y - v1.y * e1.x))),
+                   vec2(dot(pq2, pq2), s * (v2.x * e2.y - v2.y * e2.x)));
+  return -sqrt(d.x) * sign(d.y);
+}
+
+void main() {
+  int type = int(vC.x + 0.5);
+  int mode = int(vC.y + 0.5);
+  vec2 p = vPos;
+  float aa = 1.0 / uDpr;
+  float cov = 0.0;
+  float glow = 0.0;
+  float sd = 1e3;
+  if (type == 0) {
+    vec2 q = p - vA.xy;
+    float c = cos(vB.x), s = sin(vB.x);
+    q = vec2(c * q.x + s * q.y, -s * q.x + c * q.y);
+    sd = sdEllipse(q, max(vA.zw, vec2(0.05)));
+    cov = clamp(0.5 - sd / aa, 0.0, 1.0);
+  } else if (type == 1) {
+    sd = sdCapsule(p, vA.xy, vA.zw, vB.x, vB.y);
+    cov = clamp(0.5 - sd / aa, 0.0, 1.0);
+  } else if (type == 2) {
+    sd = sdTriangle(p, vA.xy, vA.zw, vB.xy) - vE.w;
+    cov = clamp(0.5 - sd / aa, 0.0, 1.0);
+  } else if (type == 3) {
+    float r = length(p - vA.xy);
+    float core = max(vA.w, 0.3);
+    glow = exp(-r * r / (core * core)) + 0.35 * exp(-r * r / (vA.z * vA.z * 0.18));
+    glow *= 1.0 - smoothstep(vA.z * 0.8, vA.z, r);
+  } else if (type == 4) {
+    cov = clamp(0.5 - (abs(length((p - vA.xy) * vec2(1.0, vB.x)) - vA.z) - vA.w) / aa, 0.0, 1.0);
+  } else {
+    // light beam: a soft cone fading along its length
+    vec2 ab = vA.zw - vA.xy;
+    float t = clamp(dot(p - vA.xy, ab) / max(dot(ab, ab), 1e-4), 0.0, 1.0);
+    float d = sdCapsule(p, vA.xy, vA.zw, vB.x, vB.y);
+    glow = smoothstep(max(vB.y, 1.0) * 0.6, -max(vB.y, 1.0) * 0.4, d) * pow(1.0 - t, 1.6);
+  }
+  if (cov <= 0.0 && glow <= 0.0) discard;
+
+  // never compete with the words: fade under the text block
+  if (uMask.z > 0.0) {
+    vec2 d = max(uMask.xy - 12.0 - p, p - (uMask.xy + uMask.zw + 12.0));
+    float m = 1.0 - 0.88 * smoothstep(10.0, -10.0, max(d.x, d.y));
+    cov *= m;
+    glow *= m;
+  }
+
+  // hidden behind any nearer ridge
+  if (vD.z > -0.5 && vD.z < 5.5) {
+    gYh = PITCH - sqrt(max(uAlt, 0.0) * 2.0 / 6.371e6) * 0.7;
+    float px = (p.x - uCss.x * 0.5) / uCss.y;
+    float py = 1.0 - p.y / uCss.y;
+    float ny = nearerCrest(int(vD.z + 0.5), px);
+    float e = 0.8 / uCss.y;
+    float vis = smoothstep(ny - e, ny + e, py);
+    cov *= vis;
+    glow *= vis;
+    if (cov <= 0.0 && glow <= 0.0) discard;
+  }
+
+  if (glow > 0.0) {
+    fragColor = vec4(vE.rgb * glow * vC.z * vC.w * uGroup, 0.0);
+    return;
+  }
+  if (mode == 2) {
+    float a = cov * vC.w;
+    fragColor = vec4(vE.rgb * vC.z * a * uGroup, a);
+    return;
+  }
+  vec2 uv = mode == 1 ? vec2(p.x / uCss.x, 1.0 - p.y / uCss.y) : vec2(vD.x / uCss.x, 1.0 - (vD.y + 3.0) / uCss.y);
+  vec3 w = texture(uWorld, clamp(uv, 0.001, 0.999)).rgb;
+  vec3 col = w * vC.z;
+  if (vD.w > 0.0) col = mix(col, vE.rgb * (dot(w, vec3(0.299, 0.587, 0.114)) * 1.4 + 0.02), vD.w);
+  // a figure on the ground reads as a figure: never lighter than what is behind it
+  vec3 back = texture(uWorld, vec2(p.x / uCss.x, 1.0 - p.y / uCss.y)).rgb;
+  if (mode == 0 && vC.z < 1.0) col = min(col, back * 0.9);
+
+  float a = cov * vC.w;
+  fragColor = vec4(col * a * uGroup, a);
 }`;

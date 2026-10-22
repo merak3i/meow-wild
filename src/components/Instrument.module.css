@@ -239,3 +239,32 @@
     right: -4px;
   }
 }
+
+/* a phone on its side: keep the readout small enough to stay out of the words */
+@media (max-height: 520px) {
+  .hud {
+    top: 10px;
+    left: 14px;
+    gap: 1px;
+  }
+  .label,
+  .meta {
+    display: none;
+  }
+  .value {
+    font-size: 1.35rem;
+  }
+  .zone {
+    margin-top: 2px;
+    font-size: 0.84rem;
+  }
+  .rail {
+    height: 72vh;
+  }
+}
+
+/* without script the readout cannot follow the page */
+:global(html:not(.js)) .hud,
+:global(html:not(.js)) .needle {
+  display: none;
+}

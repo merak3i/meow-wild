@@ -47,9 +47,19 @@
   opacity: clamp(0, (1 - var(--q, 0)) * 6, 1);
   transform: translate3d(0, calc(clamp(0, (var(--q, 0) - 0.83) * 5.8, 1) * -5vh), 0);
 }
+/* the shade behind the words deepens as they light up */
+:global(html.js:not(.rm)) .inner::before {
+  opacity: clamp(0.2, var(--q, 0) * 2.2, 1);
+}
 :global(html.js:not(.rm)) .kicker {
   opacity: clamp(0, var(--q, 0) * 6, 1);
 }
 :global(html.js:not(.rm)) .line span {
   opacity: calc(0.13 + 0.87 * clamp(0, (var(--q, 0) * 1.7 - var(--i) / var(--n)) * 3.4, 1));
+}
+
+@media (max-width: 760px) {
+  .sticky {
+    padding: 0 44px 0 22px;
+  }
 }

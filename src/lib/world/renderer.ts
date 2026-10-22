@@ -1,4 +1,4 @@
-import { COMPOSITE_FS, FULLSCREEN_VS, POINTS_FS, POINTS_VS, WORLD_FS } from "./shaders";
+import { COMPOSITE_FS, FULLSCREEN_VS, POINTS_FS, POINTS_VS, STORY_FS, STORY_VS, WORLD_FS } from "./shaders";
 
 export interface CatDraw {
   id: string;
@@ -24,10 +24,24 @@ export interface Frame {
   starVis: number;
   horizon: number;
   window: number;
+  /** how far the window room has scrolled up the screen, in viewport heights */
   sill: number;
   lamp: number;
   cats: CatDraw[];
+  /**
+   * figures in the landscape: STORY_FLOATS floats per primitive (see story/kit.ts), drawn in
+   * groups of [first, count, opacity] (one per world); without groups, all at full opacity
+   */
+  story?: {
+    data: Float32Array;
+    count: number;
+    mask?: [number, number, number, number] | null;
+    groups?: readonly (readonly [number, number, number])[];
+  };
 }
+
+/** floats per story primitive: five vec4s */
+export const STORY_FLOATS = 20;
 
 interface CatCloud {
   vao: WebGLVertexArrayObject;
@@ -80,6 +94,14 @@ export class WorldRenderer {
   private world!: { p: WebGLProgram; u: Uniforms };
   private comp!: { p: WebGLProgram; u: Uniforms };
   private pts!: { p: WebGLProgram; u: Uniforms };
+  private sto!: { p: WebGLProgram; u: Uniforms };
+  private storyVao!: WebGLVertexArrayObject;
+  private storyBuf!: WebGLBuffer;
+  private storyCap = 0;
+  private storyFbo!: WebGLFramebuffer;
+  private storyTex!: WebGLTexture;
+  private storyW = 0;
+  private storyH = 0;
   private emptyVao!: WebGLVertexArrayObject;
   private fbo!: WebGLFramebuffer;
   private tex!: WebGLTexture;
@@ -140,8 +162,34 @@ export class WorldRenderer {
     const gl = this.gl;
     this.world = program(gl, FULLSCREEN_VS, WORLD_FS, ["uRes", "uTime", "uAlt", "uDrift", "uTravel", "uVel", "uP"]);
     this.comp = program(gl, FULLSCREEN_VS, COMPOSITE_FS, [
-      "uTex", "uRes", "uTime", "uVel", "uStarVis", "uHorizon", "uWindow", "uSill", "uGrain", "uLamp",
+      "uTex", "uStory", "uStoryOn", "uRes", "uTime", "uVel", "uStarVis", "uHorizon", "uWindow", "uSill", "uGrain", "uLamp",
     ]);
+    this.sto = program(gl, STORY_VS, STORY_FS, ["uCss", "uWorld", "uDpr", "uAlt", "uDrift", "uP", "uMask", "uGroup"]);
+    this.storyVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.storyVao);
+    const corners = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, corners);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    this.storyBuf = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.storyBuf);
+    this.storyCap = 0;
+    for (let k = 0; k < 5; k++) {
+      gl.enableVertexAttribArray(1 + k);
+      gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, STORY_FLOATS * 4, k * 16);
+      gl.vertexAttribDivisor(1 + k, 1);
+    }
+    gl.bindVertexArray(null);
+    this.storyTex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, this.storyTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.storyFbo = gl.createFramebuffer()!;
+    this.storyW = 0;
+    this.storyH = 0;
     this.pts = program(gl, POINTS_VS, POINTS_FS, ["uCanvas", "uRect", "uProg", "uDiss", "uTime", "uMode", "uSize", "uPhoto", "uFade"]);
     this.emptyVao = gl.createVertexArray()!;
     this.tex = gl.createTexture()!;
@@ -166,6 +214,21 @@ export class WorldRenderer {
       this.canvas.height = ch;
     }
     this.resizeFbo();
+    this.resizeStory();
+  }
+
+  private resizeStory() {
+    const gl = this.gl;
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+    if (w === this.storyW && h === this.storyH) return;
+    this.storyW = w;
+    this.storyH = h;
+    gl.bindTexture(gl.TEXTURE_2D, this.storyTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.storyFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.storyTex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
   private resizeFbo() {
@@ -316,14 +379,65 @@ export class WorldRenderer {
     gl.bindVertexArray(this.emptyVao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
+    // pass 1b: figures in the landscape, at full resolution, coloured by the world under their feet.
+    // Each group fades as a whole: the shader scales colour by the group's opacity but returns bare
+    // coverage as alpha, so colour is laid "over" by coverage (inside one figure the topmost part
+    // simply wins, nothing doubles up), while the blend constant puts coverage x opacity into the
+    // stored alpha that the composite lays over the world.
+    const story = f.story && f.story.count > 0 ? f.story : null;
+    if (story) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.storyFbo);
+      gl.viewport(0, 0, this.storyW, this.storyH);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.enable(gl.BLEND);
+      gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.CONSTANT_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.useProgram(this.sto.p);
+      const su = this.sto.u;
+      gl.uniform2f(su.uCss, this.cssW, this.cssH);
+      gl.uniform1f(su.uDpr, this.storyW / this.cssW);
+      gl.uniform1f(su.uAlt, f.alt);
+      gl.uniform1f(su.uDrift, f.drift);
+      gl.uniform4fv(su.uP, f.params);
+      const m = story.mask;
+      gl.uniform4f(su.uMask, m ? m[0] : 0, m ? m[1] : 0, m ? m[2] : 0, m ? m[3] : 0);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.tex);
+      gl.uniform1i(su.uWorld, 0);
+      gl.bindVertexArray(this.storyVao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.storyBuf);
+      const n = story.count * STORY_FLOATS;
+      if (n > this.storyCap) {
+        this.storyCap = Math.max(n, this.storyCap * 2, 4096);
+        gl.bufferData(gl.ARRAY_BUFFER, this.storyCap * 4, gl.DYNAMIC_DRAW);
+      }
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, story.data, 0, n);
+      const groups = story.groups ?? [[0, story.count, 1] as const];
+      for (const [first, count, opacity] of groups) {
+        if (count <= 0 || opacity <= 0.002) continue;
+        gl.uniform1f(su.uGroup, opacity);
+        gl.blendColor(0, 0, 0, opacity);
+        // no base instance in WebGL2: start the instance attributes at this group instead
+        for (let k = 0; k < 5; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, STORY_FLOATS * 4, (first * STORY_FLOATS + k * 4) * 4);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
+      }
+      gl.disable(gl.BLEND);
+    }
+
     // pass 2: composite
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.useProgram(this.comp.p);
+    gl.bindVertexArray(this.emptyVao);
     const cu = this.comp.u;
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.tex);
     gl.uniform1i(cu.uTex, 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.storyTex);
+    gl.uniform1i(cu.uStory, 1);
+    gl.uniform1f(cu.uStoryOn, story ? 1 : 0);
+    gl.activeTexture(gl.TEXTURE0);
     gl.uniform2f(cu.uRes, this.canvas.width, this.canvas.height);
     gl.uniform1f(cu.uTime, f.time);
     gl.uniform1f(cu.uVel, f.vel);
@@ -374,8 +488,13 @@ export class WorldRenderer {
     this.cats.clear();
     gl.deleteFramebuffer(this.fbo);
     gl.deleteTexture(this.tex);
+    gl.deleteFramebuffer(this.storyFbo);
+    gl.deleteTexture(this.storyTex);
+    gl.deleteBuffer(this.storyBuf);
+    gl.deleteVertexArray(this.storyVao);
     gl.deleteProgram(this.world.p);
     gl.deleteProgram(this.comp.p);
     gl.deleteProgram(this.pts.p);
+    gl.deleteProgram(this.sto.p);
   }
 }
