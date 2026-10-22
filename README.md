@@ -26,7 +26,7 @@ Next.js 16 (App Router), React 19, Lenis for scroll. No other runtime dependenci
 
 **The crossings between cats** are scored like a film, from the same recordings, processed in the browser. As a cat arrives, its voice swells up out of a long reverb (the first moments of its call, reversed, reverberated and reversed back, rendered once in an `OfflineAudioContext`) and the call lands on the swell's peak, with its own voice an octave down for weight while the landscape holds its breath. Turn back before it calls and the swell falls away. As you leave, the call comes back once, slower and darker, down the valley. While a chapter or teaser holds the screen, the next cat's voice drifts through it in slowed grains, and each chapter title lands on a low boom made from that voice. Cats without a recording stay silent: no voice is borrowed.
 
-**The walk** (`lib/walkthrough.ts`, `lib/walk/runner.ts`, `components/Walk.tsx`): Vismay takes you down, stop by stop, in his own cloned voice over an ambient beat that takes the music bed's place. Each cat calls first, then he speaks; captions follow him. Space pauses, the arrows skip, Escape ends it, and scrolling by hand steps the walk aside until you pick it up again. Everything waits on the audio clock, so a pause stops the walk mid-sentence and it carries on from the same word.
+**The walk** (`lib/walkthrough.ts`, `lib/walk/runner.ts`, `components/Walk.tsx`): Vismay takes you down, stop by stop, in a calm ElevenLabs narrator voice over an ambient beat that takes the music bed's place. Each cat calls first, then he speaks; captions follow him. Space pauses, the arrows skip, Escape ends it, and scrolling by hand steps the walk aside until you pick it up again. Everything waits on the audio clock, so a pause stops the walk mid-sentence and it carries on from the same word.
 
 **The cursor** is a paw, drawn by `scripts/cursor/paw.py` (`public/cursor`), with pink beans over anything you can press.
 
@@ -49,5 +49,5 @@ In development, `window.__mw` exposes the ambience, living and story layers in t
 
 - Photographs: Wikimedia Commons, credited in `public/cats/CREDITS.md` and on the page. How they became cutouts: [`scripts/cutouts/`](scripts/cutouts/README.md).
 - Sound: credited in `src/lib/sounds.ts` and on the page. How the clips were edited: [`scripts/audio/`](scripts/audio/README.md). Some recordings and the music are licensed for non-commercial use only.
-- The walk: narration generated in Voicebox (Qwen3-TTS 1.7B) from Vismay's own voice, then slowed and levelled by `scripts/audio/walk.py`; the beat, "a slow way down", is synthesized from nothing by `scripts/audio/beats.py`.
+- The walk: narration voiced with ElevenLabs (Eleven v4, Kiaan) as one take of the whole script, split into the 25 lines on its pauses and levelled to -19 LUFS (an earlier Voicebox take of Vismay's own voice is in git history, `scripts/audio/walk.py`); the beat, "a slow way down", is synthesized from nothing by `scripts/audio/beats.py`.
 - Fonts: Instrument Serif, Instrument Sans and JetBrains Mono, self-hosted under the SIL Open Font License (`src/app/fonts/OFL.txt`).

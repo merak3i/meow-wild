@@ -2,8 +2,8 @@
  * The walkthrough: Vismay walks you down the mountain, top to bottom.
  *
  * Each step is a place on the page and, usually, a line in his voice
- * (public/sound/walk/<id>.m4a and .webm, generated locally in Voicebox from
- * his own cloned voice). `caption` is what the subtitles show; `say` is what
+ * (public/sound/walk/<id>.m4a and .webm, voiced in ElevenLabs, Eleven v4,
+ * Kiaan; one take of the whole script, split per line on its pauses). `caption` is what the subtitles show; `say` is what
  * the voice was given, numbers spelled out and pauses written in. At a cat
  * with a recording, its own call plays first and the line follows it.
  */

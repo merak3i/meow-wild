@@ -164,8 +164,8 @@ export const SOUND_CREDITS: SoundCredit[] = [
   {
     id: "walk",
     label: "The walk",
-    what: "Narration in Vismay's own voice, cloned from his recording and generated on his computer with Voicebox (Qwen3-TTS)",
-    author: "Vismay Hegde",
+    what: "Narration written by Vismay, voiced with ElevenLabs (Eleven v4, the Kiaan voice: calm, gentle audiobook narrator)",
+    author: "Vismay Hegde (script) · ElevenLabs (voice)",
     via: "Meow Creative Haus",
     source: "https://meowcreativehaus.xyz",
     license: "© 2026 Meow Creative Haus",
