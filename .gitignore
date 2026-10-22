@@ -42,4 +42,10 @@ next-env.d.ts
 
 # local tooling
 .venv/
+__pycache__/
 *-sheet.webp
+
+# asset pipeline inputs, models and scratch (scripts/cutouts, scripts/audio)
+/scripts/cutouts/work/
+/scripts/audio/raw/
+/scripts/audio/work/
