@@ -87,7 +87,23 @@ a {
 button {
   font: inherit;
   color: inherit;
-  cursor: pointer;
+}
+
+/* a paw for a cursor: cream with a dark rim so it reads on snow and at night; pink beans when it can press something.
+   Each rule falls back to the plain 1x image where image-set() is not supported for cursors. */
+html {
+  cursor: url("/cursor/paw.png") 7 7, auto;
+  cursor: -webkit-image-set(url("/cursor/paw.png") 1x, url("/cursor/paw@2x.png") 2x) 7 7, auto;
+  cursor: image-set(url("/cursor/paw.png") 1x, url("/cursor/paw@2x.png") 2x) 7 7, auto;
+}
+a,
+button,
+summary,
+label,
+[role="button"] {
+  cursor: url("/cursor/paw-tap.png") 7 7, pointer;
+  cursor: -webkit-image-set(url("/cursor/paw-tap.png") 1x, url("/cursor/paw-tap@2x.png") 2x) 7 7, pointer;
+  cursor: image-set(url("/cursor/paw-tap.png") 1x, url("/cursor/paw-tap@2x.png") 2x) 7 7, pointer;
 }
 
 @media (prefers-reduced-motion: reduce) {

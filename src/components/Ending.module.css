@@ -201,7 +201,6 @@
   padding-top: 18px;
 }
 .credits summary {
-  cursor: pointer;
   font-family: var(--mono);
   font-size: 0.66rem;
   letter-spacing: 0.22em;

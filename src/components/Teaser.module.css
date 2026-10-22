@@ -12,6 +12,8 @@
   align-items: center;
   justify-content: center;
   padding: 0 28px;
+  /* the scrim behind the line reaches past the screen edge on phones; keep it from widening the page */
+  overflow: hidden;
 }
 .inner {
   position: relative;

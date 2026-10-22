@@ -32,9 +32,6 @@
 .cap {
   fill: rgba(246, 242, 234, 0.6);
 }
-.pt {
-  cursor: default;
-}
 .dot {
   fill: var(--c);
   stroke: rgba(6, 9, 14, 0.9);
