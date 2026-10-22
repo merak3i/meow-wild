@@ -165,9 +165,10 @@ export default function Experience() {
         if (stackedNow()) {
           // photo above the text: keep the cat in the upper part of the screen
           const ph = el.querySelector<HTMLElement>("[data-photo]")?.getBoundingClientRect();
-          if (ph) return Math.max(0, ph.top + sy + ph.height / 2 - vh * 0.4);
+          if (ph) return Math.max(0, ph.top + sy + ph.height / 2 - vh * 0.36);
         }
-        return Math.max(0, r.top + sy + r.height / 2 - vh / 2);
+        // a little above centre, so the captions at the bottom leave the cat's facts readable
+        return Math.max(0, r.top + sy + r.height / 2 - vh * 0.45);
       }
       if (at.kind === "after") {
         const el = root.querySelector<HTMLElement>('[data-walk="after"]');
@@ -530,7 +531,8 @@ export default function Experience() {
         const pan = ((left + st.w / 2) / window.innerWidth) * 2 - 1;
         if (soundOn && o < 2.4 && o > -0.6) ambience.prepare(st.id);
         const inView = Math.abs(o) < 0.32 && (st.last > 0.6 || !particles);
-        const arriving = Math.abs(o) < 0.42 && (st.last > 0.3 || !particles);
+        // a cat is only arriving if you are slowing down to it, not rushing past (a jump, a rewind)
+        const arriving = Math.abs(o) < 0.42 && (st.last > 0.3 || !particles) && Math.abs(vel) < 2.5;
         if (!inView) st.seen = 0;
         else if (!st.seen) st.seen = now;
         if (Math.abs(o) > 0.9) {
@@ -539,7 +541,7 @@ export default function Experience() {
         }
         if (soundOn && st.id !== "domestic-cat") {
           if (!st.called && arriving && ambience.arrive(st.id, pan)) st.called = true;
-          else if (!st.called && st.seen && now - st.seen > 700 && ambience.call(st.id, pan)) st.called = true;
+          else if (!st.called && st.seen && now - st.seen > 700 && Math.abs(vel) < 2.5 && ambience.call(st.id, pan)) st.called = true;
           if (st.called && Math.abs(o) > 0.62 && ambience.cancel(st.id)) st.called = false;
           if (st.called && !st.echoed && Math.abs(o) > 0.55) {
             ambience.depart(st.id, pan);

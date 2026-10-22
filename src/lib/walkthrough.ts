@@ -31,13 +31,13 @@ export const WALK: WalkStep[] = [
     say: "Hi... I'm Vismay. Put your feet up. I'll do the walking. We start at five and a half thousand metres... and we walk, all the way down to the sea. One cat, at every height.",
   },
   {
-    at: { kind: "pin", name: "hero", q: 0.62 },
+    at: { kind: "pin", name: "hero", q: 0.8 },
     id: "light",
     caption: "The sun's coming up. Up here, every breath is half a breath. Let's go and see who lives like this.",
     say: "The sun's coming up. Up here, every breath is half a breath... Let's go and see who lives like this.",
   },
   { at: { kind: "pin", name: "teaser", index: 0, q: 0.78 }, hold: 3 },
-  { at: { kind: "pin", name: "chapter", index: 0, q: 0.45 }, hold: 2.2 },
+  { at: { kind: "pin", name: "chapter", index: 0, q: 0.52 }, hold: 2.2 },
   {
     at: { kind: "station", id: "snow-leopard" },
     id: "snow-leopard",
@@ -57,7 +57,7 @@ export const WALK: WalkStep[] = [
     say: "Pallas's cat. The densest fur of any cat. It's not grumpy... that's just its face.",
   },
   { at: { kind: "pin", name: "teaser", index: 1, q: 0.78 }, hold: 2.6 },
-  { at: { kind: "pin", name: "chapter", index: 1, q: 0.45 }, hold: 2 },
+  { at: { kind: "pin", name: "chapter", index: 1, q: 0.52 }, hold: 2 },
   {
     at: { kind: "station", id: "puma" },
     id: "puma",
@@ -82,7 +82,7 @@ export const WALK: WalkStep[] = [
     caption: "Into the cloud now. The trees start here, and the teeth get longer.",
     say: "Into the cloud now. The trees start here... and the teeth get longer.",
   },
-  { at: { kind: "pin", name: "chapter", index: 2, q: 0.45 }, hold: 2 },
+  { at: { kind: "pin", name: "chapter", index: 2, q: 0.52 }, hold: 2 },
   {
     at: { kind: "station", id: "clouded-leopard" },
     id: "clouded-leopard",
@@ -113,7 +113,7 @@ export const WALK: WalkStep[] = [
     caption: "Something very big lives a little further down.",
     say: "Something very big... lives a little further down.",
   },
-  { at: { kind: "pin", name: "chapter", index: 3, q: 0.45 }, hold: 2 },
+  { at: { kind: "pin", name: "chapter", index: 3, q: 0.52 }, hold: 2 },
   {
     at: { kind: "station", id: "tiger" },
     id: "tiger",
@@ -139,7 +139,7 @@ export const WALK: WalkStep[] = [
     say: "The margay. It turns its ankles right round, and runs down trees headfirst. Like a squirrel... with a plan.",
   },
   {
-    at: { kind: "pin", name: "chapter", index: 4, q: 0.45 },
+    at: { kind: "pin", name: "chapter", index: 4, q: 0.52 },
     id: "warm",
     caption: "Warmer now. And louder.",
     say: "Warmer now... and louder.",
@@ -158,7 +158,7 @@ export const WALK: WalkStep[] = [
     say: "The rusty spotted cat. Under a kilo. It could fall asleep in your two cupped hands... It won't. But it could.",
   },
   { at: { kind: "pin", name: "teaser", index: 5, q: 0.78 }, hold: 2.6 },
-  { at: { kind: "pin", name: "chapter", index: 5, q: 0.45 }, hold: 2 },
+  { at: { kind: "pin", name: "chapter", index: 5, q: 0.52 }, hold: 2 },
   {
     at: { kind: "station", id: "sand-cat" },
     id: "sand-cat",

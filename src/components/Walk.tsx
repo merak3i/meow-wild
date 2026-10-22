@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { WalkState } from "@/lib/walk/runner";
+import { WALK } from "@/lib/walkthrough";
 import styles from "./Walk.module.css";
 
 const send = (cmd: string) => window.dispatchEvent(new CustomEvent("mw:walk", { detail: cmd }));
+
+/** which cat of the walk a stop is (1-based), or 0 between cats */
+const CAT_AT = WALK.map((s, i) => (s.at.kind === "station" ? WALK.slice(0, i + 1).filter((x) => x.at.kind === "station").length : 0));
+const CATS_ON_WALK = CAT_AT.reduce((a, b) => Math.max(a, b), 0);
 
 /** The way in, on the opening screen. */
 export function WalkStart() {
@@ -40,6 +45,9 @@ export default function WalkPlayer() {
   const [past, setPast] = useState(false);
   // the line stays on screen while it fades out
   const [lastLine, setLastLine] = useState("");
+  // when a walk starts, the keyboard goes to its pause button (Space pauses; arrows skip)
+  const mainBtn = useRef<HTMLButtonElement>(null);
+  const wasActive = useRef(false);
 
   useEffect(() => {
     const onState = (e: Event) => {
@@ -67,6 +75,10 @@ export default function WalkPlayer() {
 
   const mode = st?.mode ?? "idle";
   const active = mode === "playing" || mode === "paused" || mode === "away";
+  useEffect(() => {
+    if (active && !wasActive.current) mainBtn.current?.focus({ preventScroll: true });
+    wasActive.current = active;
+  }, [active]);
 
   if (!active && !done) {
     return (
@@ -116,6 +128,7 @@ export default function WalkPlayer() {
               <Icon d={PREV} />
             </button>
             <button
+              ref={mainBtn}
               type="button"
               className={`${styles.btn} ${styles.main}`}
               onClick={() => send("toggle")}
@@ -129,9 +142,9 @@ export default function WalkPlayer() {
             </button>
           </>
         )}
-        {st && !done && (
+        {st && !done && CAT_AT[st.index] > 0 && (
           <span className={styles.count}>
-            {st.index + 1} / {st.total}
+            Cat {String(CAT_AT[st.index]).padStart(2, "0")} / {CATS_ON_WALK}
           </span>
         )}
         <button type="button" className={`${styles.btn} ${styles.close}`} onClick={() => send("stop")} aria-label="End the walk">
