@@ -65,6 +65,14 @@ export default function WalkPlayer() {
     };
   }, []);
 
+  // a line stays up only while it fades: by the next cat it is gone
+  const caption = st?.caption ?? null;
+  useEffect(() => {
+    if (caption) return;
+    const t = window.setTimeout(() => setLastLine(""), 700);
+    return () => window.clearTimeout(t);
+  }, [caption]);
+
   // after the last stop, a goodbye for a moment, then back to the launcher
   const done = st?.mode === "done";
   useEffect(() => {
