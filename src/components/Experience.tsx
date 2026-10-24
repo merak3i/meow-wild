@@ -28,6 +28,7 @@ import CatStation from "./CatStation";
 import Teaser from "./Teaser";
 import Ending from "./Ending";
 import SoundToggle from "./SoundToggle";
+import MchMark from "./MchMark";
 import { Ambience, CALL_GAIN } from "@/lib/audio/ambience";
 import { WalkRunner, type WalkState } from "@/lib/walk/runner";
 import type { WalkAt } from "@/lib/walkthrough";
@@ -723,6 +724,7 @@ export default function Experience() {
       <canvas ref={liveRef} className={styles.live} aria-hidden="true" />
       <Instrument />
       <SoundToggle />
+      <MchMark />
       <WalkPlayer />
 
       <main className={styles.main}>
